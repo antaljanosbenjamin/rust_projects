@@ -1,4 +1,4 @@
-use crate::logic::field::{DummyField, EmptyField, Field};
+use crate::logic::field::{DummyField, Field};
 
 pub struct Table {
     values: Vec<Vec<Box<dyn Field>>>,
@@ -12,7 +12,7 @@ impl Table {
             for c in 0..width {
                 match (r + c) % 2 {
                     1 => row.push(Box::new(DummyField {})),
-                    _ => row.push(Box::new(EmptyField {}))
+                    _ => row.push(Field::new(false, 0))
                 }
             }
             table.values.push(row);
