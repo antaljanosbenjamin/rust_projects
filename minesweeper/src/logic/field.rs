@@ -23,6 +23,10 @@ pub trait Field {
     fn get_char_repr(&self) -> char;
 
     fn open(&mut self) -> Option<OpenResult>;
+
+    fn is_mine(&self) -> bool {
+        false
+    }
 }
 
 impl Field {
@@ -37,6 +41,7 @@ impl Field {
     }
 }
 
+#[allow(dead_code)]
 pub struct DummyField;
 
 impl Field for DummyField {
@@ -128,5 +133,9 @@ impl Field for MineField {
             self.state = FieldState::Opened;
             Some(OpenResult::Boom)
         }
+    }
+
+    fn is_mine(&self) -> bool {
+        true
     }
 }
