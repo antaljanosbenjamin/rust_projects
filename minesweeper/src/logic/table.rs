@@ -7,8 +7,17 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn new(width: u8, height: u8) -> Table {
-        let mut table = Table{values: Vec::<Vec<Box<dyn Field>>>::new()}; 
+    pub fn new(width: u8, height: u8, number_of_mines: u16) -> Result<Table, &'static str> {
+        let max_number_of_mines = (width as f32 * height as f32 * 0.5) as u16;
+        let min_number_of_mines = (width as f32 * height as f32 * 0.05) as u16;
+        if max_number_of_mines < number_of_mines {
+            return Err("Too much mines!");
+        }
+        if min_number_of_mines > number_of_mines {
+            return Err("Too few mines!");
+        }
+
+
         let mut table = Table{values: Vec::<Vec<Box<dyn Field>>>::new(), number_of_mines};
         let mut mines_location = HashSet::new();
         while (mines_location.len() as u16) < number_of_mines {
