@@ -1,4 +1,5 @@
-use crate::logic::field::Field;
+use crate::logic::field::{Field, FieldOpenResult};
+use indexmap::IndexSet;
 use std::collections::HashSet;
 
 pub struct Table {
@@ -7,6 +8,11 @@ pub struct Table {
     number_of_mines: usize,
     mine_locations: Option<HashSet<(usize, usize)>>,
     fields: Option<Vec<Vec<Box<dyn Field>>>>,
+}
+
+pub enum OpenResult {
+    Ok,
+    Boom,
 }
 
 const NEIGHBOR_OFFSETS: [(i8, i8); 8] = [
@@ -152,5 +158,31 @@ impl Table {
             }
             None => println!("Field informations are missing!"),
         }
+    }
+
+    pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenResult, &'static str> {
+        let mut fields_to_open = IndexSet::new();
+        let mut recently_opened_fields = HashSet::new();
+        fields_to_open.insert((row, col));
+
+        while !fields_to_open.is_empty() {
+            let (r, c) = fields_to_open.pop().unwrap();
+            let field = self.get_field_mut(r, c)?;
+
+            match field.as_mut().open() {
+                FieldOpenResult::MultiOpen => {
+                    fields_to_open.extend(Table::get_neighbor_fields(row, col).into_iter());
+                }
+                FieldOpenResult::Boom => return Ok(OpenResult::Boom),
+                _ => (),
+            }
+
+            recently_opened_fields.insert((r, c));
+            if recently_opened_fields.contains(&(r, c)) {
+                continue;
+            }
+        }
+
+        Ok(OpenResult::Ok)
     }
 }
