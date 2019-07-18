@@ -57,14 +57,7 @@ impl Table {
         Ok(())
     }
 
-    fn get_field_value(&self, row: usize, col: usize) -> Result<usize, &'static str> {
-        if self.mine_locations.is_none() {
-            return Err("Mine locations are missing");
-        }
-
-        let mine_locations = self.mine_locations.as_ref().unwrap();
-        let mut field_value: usize = 0;
-
+    fn get_neighbor_fields(row: usize, col: usize) -> Vec<(usize, usize)> {
         fn add(u: usize, i: i8) -> Option<usize> {
             if i.is_negative() {
                 u.checked_sub(i.wrapping_abs() as u8 as usize)
@@ -73,14 +66,29 @@ impl Table {
             }
         };
 
+        let mut neighbors = Vec::new();
+
         for offset in NEIGHBOR_OFFSETS.iter() {
             match (add(row, offset.0), add(col, offset.1)) {
                 (Some(r), Some(c)) => {
-                    if mine_locations.contains(&(r, c)) {
-                        field_value = field_value + 1;
-                    }
+                    neighbors.push((r, c));
                 }
                 _ => (),
+            }
+        }
+
+        neighbors
+    }
+
+    fn get_field_value(&self, row: usize, col: usize) -> Result<usize, &'static str> {
+        let mine_locations = self.get_mine_locations()?;
+        if mine_locations.contains(&(row, col)) {
+            return Err("Mine does not have value!");
+        }
+        let mut field_value: usize = 0;
+        for (r, c) in Table::get_neighbor_fields(row, col) {
+            if mine_locations.contains(&(r, c)) {
+                field_value = field_value + 1;
             }
         }
 
@@ -88,10 +96,7 @@ impl Table {
     }
 
     fn generate_fields(&mut self) -> Result<(), &'static str> {
-        if self.mine_locations.is_none() {
-            return Err("Mine locations are missing!");
-        }
-        let &mine_locations = &self.mine_locations.as_ref().unwrap();
+        let mine_locations = self.get_mine_locations()?;
 
         let mut fields = Vec::<Vec<Box<dyn Field>>>::new();
         for r in 0..self.height {
