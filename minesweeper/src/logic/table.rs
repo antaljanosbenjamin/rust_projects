@@ -57,6 +57,18 @@ impl Table {
         Ok(())
     }
 
+    fn get_field_mut(&mut self, row: usize, col: usize) -> Result<&mut Box<dyn Field>, &'static str> {
+        if self.height <= row {
+            return Err("The row does not exist!");
+        }
+        if self.width <= col {
+            return Err("The column does not exist!");
+        }
+        let fields = self.get_fields_mut()?;
+
+        Ok(&mut fields[row][col])
+    }
+
     fn get_neighbor_fields(row: usize, col: usize) -> Vec<(usize, usize)> {
         fn add(u: usize, i: i8) -> Option<usize> {
             if i.is_negative() {
