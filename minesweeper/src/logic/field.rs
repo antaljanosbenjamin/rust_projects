@@ -20,8 +20,20 @@ pub enum FieldOpenResult {
     Boom,
 }
 
-pub trait Field {
-    fn get_char_repr(&self) -> char;
+pub trait FieldInner {
+    fn get_char_repr_inner(&self) -> char;
+
+    fn get_field_state(&self) -> &FieldState;
+}
+
+pub trait Field : FieldInner {
+    fn get_char_repr(&self) -> char {
+        if !self.get_field_state().is_opened() {
+            'O'
+        } else {
+            self.get_char_repr_inner()
+        }
+    }
 
     fn open(&mut self) -> FieldOpenResult;
 
@@ -42,19 +54,6 @@ impl Field {
     }
 }
 
-#[allow(dead_code)]
-pub struct DummyField;
-
-impl Field for DummyField {
-    fn get_char_repr(&self) -> char {
-        'D'
-    }
-
-    fn open(&mut self) -> FieldOpenResult {
-        FieldOpenResult::SimpleOpen
-    }
-}
-
 pub struct EmptyField {
     state: FieldState,
 }
@@ -66,10 +65,18 @@ impl EmptyField {
         }
     }
 }
-impl Field for EmptyField {
-    fn get_char_repr(&self) -> char {
+
+impl FieldInner for EmptyField {
+    fn get_char_repr_inner(&self) -> char {
         ' '
     }
+
+    fn get_field_state(&self) -> &FieldState {
+        &self.state
+    }
+}
+
+impl Field for EmptyField {
 
     fn open(&mut self) -> FieldOpenResult {
         if self.state.is_opened() {
@@ -95,11 +102,17 @@ impl NumberedField {
     }
 }
 
-impl Field for NumberedField {
-    fn get_char_repr(&self) -> char {
+impl FieldInner for NumberedField {
+    fn get_char_repr_inner(&self) -> char {
         std::char::from_digit(self.value as u32, 10).unwrap()
     }
 
+    fn get_field_state(&self) -> &FieldState {
+        &self.state
+    }
+}
+
+impl Field for NumberedField {
     fn open(&mut self) -> FieldOpenResult {
         if self.state.is_opened() {
             FieldOpenResult::AlreadyOpened
@@ -122,11 +135,18 @@ impl MineField {
     }
 }
 
-impl Field for MineField {
-    fn get_char_repr(&self) -> char {
+
+impl FieldInner for MineField {
+    fn get_char_repr_inner(&self) -> char {
         'X'
     }
 
+    fn get_field_state(&self) -> &FieldState {
+        &self.state
+    }
+}
+
+impl Field for MineField {
     fn open(&mut self) -> FieldOpenResult {
         if self.state.is_opened() {
             FieldOpenResult::AlreadyOpened
