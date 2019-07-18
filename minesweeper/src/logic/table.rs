@@ -21,6 +21,20 @@ const NEIGHBOR_OFFSETS: [(i8, i8); 8] = [
 ];
 
 impl Table {
+    fn get_mine_locations(&self) -> Result<&HashSet<(usize, usize)>, &'static str> {
+        match self.mine_locations.as_ref() {
+            Some(ml) => return Ok(&ml),
+            _ => return Err("Field informations are missing!"),
+        }
+    }
+
+    fn get_fields_mut(&mut self) -> Result<&mut Vec<Vec<Box<dyn Field>>>, &'static str> {
+        match self.fields.as_mut() {
+            Some(f) => return Ok(f),
+            _ => return Err("Field informations are missing!"),
+        }
+    }
+
     fn generate_mine_locations(&mut self) -> Result<(), &'static str> {
         assert!(self.mine_locations == None);
         let max_number_of_mines = (self.width as f32 * self.height as f32 * 0.5) as usize;
