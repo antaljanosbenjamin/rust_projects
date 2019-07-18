@@ -13,7 +13,8 @@ impl FieldState {
 }
 
 #[derive(PartialEq)]
-pub enum OpenResult {
+pub enum FieldOpenResult {
+    AlreadyOpened,
     SimpleOpen,
     MultiOpen,
     Boom,
@@ -22,7 +23,7 @@ pub enum OpenResult {
 pub trait Field {
     fn get_char_repr(&self) -> char;
 
-    fn open(&mut self) -> Option<OpenResult>;
+    fn open(&mut self) -> FieldOpenResult;
 
     fn is_mine(&self) -> bool {
         false
@@ -49,8 +50,8 @@ impl Field for DummyField {
         'D'
     }
 
-    fn open(&mut self) -> Option<OpenResult> {
-        Some(OpenResult::SimpleOpen)
+    fn open(&mut self) -> FieldOpenResult {
+        FieldOpenResult::SimpleOpen
     }
 }
 
@@ -70,12 +71,12 @@ impl Field for EmptyField {
         ' '
     }
 
-    fn open(&mut self) -> Option<OpenResult> {
+    fn open(&mut self) -> FieldOpenResult {
         if self.state.is_opened() {
-            None
+            FieldOpenResult::AlreadyOpened
         } else {
             self.state = FieldState::Opened;
-            Some(OpenResult::MultiOpen)
+            FieldOpenResult::MultiOpen
         }
     }
 }
@@ -99,12 +100,12 @@ impl Field for NumberedField {
         std::char::from_digit(self.value as u32, 10).unwrap()
     }
 
-    fn open(&mut self) -> Option<OpenResult> {
+    fn open(&mut self) -> FieldOpenResult {
         if self.state.is_opened() {
-            None
+            FieldOpenResult::AlreadyOpened
         } else {
             self.state = FieldState::Opened;
-            Some(OpenResult::SimpleOpen)
+            FieldOpenResult::SimpleOpen
         }
     }
 }
@@ -126,12 +127,12 @@ impl Field for MineField {
         'X'
     }
 
-    fn open(&mut self) -> Option<OpenResult> {
+    fn open(&mut self) -> FieldOpenResult {
         if self.state.is_opened() {
-            None
+            FieldOpenResult::AlreadyOpened
         } else {
             self.state = FieldState::Opened;
-            Some(OpenResult::Boom)
+            FieldOpenResult::Boom
         }
     }
 
