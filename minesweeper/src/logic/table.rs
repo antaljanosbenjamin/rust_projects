@@ -79,7 +79,7 @@ impl Table {
         Ok(&mut fields[row][col])
     }
 
-    fn get_neighbor_fields(row: usize, col: usize) -> Vec<(usize, usize)> {
+    fn get_neighbor_fields(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
         fn add(u: usize, i: i8) -> Option<usize> {
             if i.is_negative() {
                 u.checked_sub(i.wrapping_abs() as u8 as usize)
@@ -92,7 +92,7 @@ impl Table {
 
         for offset in NEIGHBOR_OFFSETS.iter() {
             match (add(row, offset.0), add(col, offset.1)) {
-                (Some(r), Some(c)) => {
+                (Some(r), Some(c)) if r < self.height && c < self.width => {
                     neighbors.push((r, c));
                 }
                 _ => (),
@@ -108,7 +108,7 @@ impl Table {
             return Err("Mine does not have value!");
         }
         let mut field_value: usize = 0;
-        for (r, c) in Table::get_neighbor_fields(row, col) {
+        for (r, c) in self.get_neighbor_fields(row, col) {
             if mine_locations.contains(&(r, c)) {
                 field_value = field_value + 1;
             }
@@ -175,7 +175,7 @@ impl Table {
 
             match field.as_mut().open() {
                 FieldOpenResult::MultiOpen => {
-                    fields_to_open.extend(Table::get_neighbor_fields(row, col).into_iter());
+                    fields_to_open.extend(self.get_neighbor_fields(r, c).into_iter());
                 }
                 FieldOpenResult::Boom => return Ok(OpenResult::Boom),
                 _ => (),
