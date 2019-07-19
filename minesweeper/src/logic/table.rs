@@ -6,8 +6,8 @@ pub struct Table {
     width: usize,
     height: usize,
     number_of_mines: usize,
-    mine_locations: Option<HashSet<(usize, usize)>>,
-    fields: Option<Vec<Vec<Box<dyn Field>>>>,
+    mine_locations: HashSet<(usize, usize)>,
+    fields: Vec<Vec<Box<dyn Field>>>,
 }
 
 pub enum OpenResult {
@@ -26,41 +26,50 @@ const NEIGHBOR_OFFSETS: [(i8, i8); 8] = [
     (1, 1),
 ];
 
+
+fn get_neighbor_fields(width: usize, height: usize, row: usize, col: usize) -> Vec<(usize, usize)> {
+    fn add(u: usize, i: i8) -> Option<usize> {
+        if i.is_negative() {
+            u.checked_sub(i.wrapping_abs() as u8 as usize)
+        } else {
+            u.checked_add(i as usize)
+        }
+    };
+
+    let mut neighbors = Vec::new();
+
+    for offset in NEIGHBOR_OFFSETS.iter() {
+        match (add(row, offset.0), add(col, offset.1)) {
+            (Some(r), Some(c)) if r < height && c < width => {
+                neighbors.push((r, c));
+            }
+            _ => (),
+        }
+    }
+
+    neighbors
+}
+
 impl Table {
-    fn get_mine_locations(&self) -> Result<&HashSet<(usize, usize)>, &'static str> {
-        match self.mine_locations.as_ref() {
-            Some(ml) => return Ok(&ml),
-            _ => return Err("Field informations are missing!"),
-        }
-    }
 
-    fn get_fields_mut(&mut self) -> Result<&mut Vec<Vec<Box<dyn Field>>>, &'static str> {
-        match self.fields.as_mut() {
-            Some(f) => return Ok(f),
-            _ => return Err("Field informations are missing!"),
-        }
-    }
-
-    fn generate_mine_locations(&mut self) -> Result<(), &'static str> {
-        assert!(self.mine_locations == None);
-        let max_number_of_mines = (self.width as f32 * self.height as f32 * 0.5) as usize;
-        let min_number_of_mines = (self.width as f32 * self.height as f32 * 0.05) as usize;
-        if max_number_of_mines < self.number_of_mines {
+    fn generate_mine_locations(width: usize, height: usize, number_of_mines: usize) -> Result<HashSet<(usize, usize)>, &'static str> {
+        let max_number_of_mines = (width as f32 * height as f32 * 0.5) as usize;
+        let min_number_of_mines = (width as f32 * height as f32 * 0.05) as usize;
+        if max_number_of_mines < number_of_mines {
             return Err("Too much mines!");
         }
-        if min_number_of_mines > self.number_of_mines {
+        if min_number_of_mines > number_of_mines {
             return Err("Too few mines!");
         }
 
-        let mut mine_location = HashSet::new();
-        while (mine_location.len() as usize) < self.number_of_mines {
-            mine_location.insert((
-                rand::random::<usize>() % self.height,
-                rand::random::<usize>() % self.width,
+        let mut mine_locations = HashSet::new();
+        while (mine_locations.len() as usize) < number_of_mines {
+            mine_locations.insert((
+                rand::random::<usize>() % height,
+                rand::random::<usize>() % width,
             ));
         }
-        self.mine_locations = Some(mine_location);
-        Ok(())
+        Ok(mine_locations)
     }
 
     fn get_field_mut(
@@ -74,41 +83,20 @@ impl Table {
         if self.width <= col {
             return Err("The column does not exist!");
         }
-        let fields = self.get_fields_mut()?;
 
-        Ok(&mut fields[row][col])
+        Ok(&mut self.fields[row][col])
     }
 
     fn get_neighbor_fields(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
-        fn add(u: usize, i: i8) -> Option<usize> {
-            if i.is_negative() {
-                u.checked_sub(i.wrapping_abs() as u8 as usize)
-            } else {
-                u.checked_add(i as usize)
-            }
-        };
-
-        let mut neighbors = Vec::new();
-
-        for offset in NEIGHBOR_OFFSETS.iter() {
-            match (add(row, offset.0), add(col, offset.1)) {
-                (Some(r), Some(c)) if r < self.height && c < self.width => {
-                    neighbors.push((r, c));
-                }
-                _ => (),
-            }
-        }
-
-        neighbors
+        get_neighbor_fields(self.width, self.height, row, col)
     }
 
-    fn get_field_value(&self, row: usize, col: usize) -> Result<usize, &'static str> {
-        let mine_locations = self.get_mine_locations()?;
+    fn get_field_value(width: usize, height: usize, row: usize, col: usize, mine_locations: &HashSet<(usize, usize)>) -> Result<usize, &'static str> {
         if mine_locations.contains(&(row, col)) {
             return Err("Mine does not have value!");
         }
         let mut field_value: usize = 0;
-        for (r, c) in self.get_neighbor_fields(row, col) {
+        for (r, c) in get_neighbor_fields(width, height, row, col) {
             if mine_locations.contains(&(r, c)) {
                 field_value = field_value + 1;
             }
@@ -117,51 +105,43 @@ impl Table {
         Ok(field_value)
     }
 
-    fn generate_fields(&mut self) -> Result<(), &'static str> {
-        let mine_locations = self.get_mine_locations()?;
-
+    fn generate_fields(width: usize, height: usize, mine_locations: &HashSet<(usize, usize)>) -> Result<Vec::<Vec<Box<dyn Field>>>, &'static str> {
         let mut fields = Vec::<Vec<Box<dyn Field>>>::new();
-        for r in 0..self.height {
+        for r in 0..height {
             let mut row = Vec::<Box<dyn Field>>::new();
-            for c in 0..self.width {
+            for c in 0..width {
                 if mine_locations.contains(&(r, c)) {
                     row.push(Field::new(true, 0));
                 } else {
-                    let value = &self.get_field_value(r, c)?;
-                    row.push(Field::new(false, *value as u8))
+                    let value = Table::get_field_value(width, height, r, c, mine_locations)?;
+                    row.push(Field::new(false, value as u8))
                 }
             }
             fields.push(row);
         }
-        self.fields = Some(fields);
-        Ok(())
+        Ok(fields)
     }
 
     pub fn new(width: usize, height: usize, number_of_mines: usize) -> Result<Table, &'static str> {
-        let mut table = Table {
+        let mine_locations = Table::generate_mine_locations(width, height, number_of_mines)?;
+        let fields = Table::generate_fields(width, height, &mine_locations)?;
+        Ok(Table {
             width,
             height,
             number_of_mines,
-            mine_locations: None,
-            fields: None,
-        };
-        table.generate_mine_locations()?;
-        table.generate_fields()?;
-        Ok(table)
+            mine_locations: mine_locations,
+            fields: fields,
+        })
     }
 
     pub fn print(&self) {
-        match &self.fields.as_ref() {
-            Some(fields) => {
-                for row in fields.iter() {
-                    for cell in row.iter() {
-                        print!("{}", cell.get_char_repr());
-                    }
-                    println!("");
-                }
+        for row in self.fields.iter() {
+            for cell in row.iter() {
+                print!("{}", cell.get_char_repr());
             }
-            None => println!("Field informations are missing!"),
+            println!("");
         }
+        
     }
 
     pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenResult, &'static str> {
