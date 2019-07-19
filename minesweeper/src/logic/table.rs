@@ -13,6 +13,7 @@ pub struct Table {
 pub enum OpenResult {
     Ok,
     Boom,
+    WINNER,
 }
 
 const NEIGHBOR_OFFSETS: [(i8, i8); 8] = [
@@ -92,6 +93,7 @@ fn get_field_value(
 
     Ok(field_value)
 }
+
 fn generate_fields(
     width: usize,
     height: usize,
@@ -130,6 +132,10 @@ impl Table {
         get_neighbor_fields(self.width, self.height, row, col)
     }
 
+    fn all_fields_are_open(&self) -> bool {
+        self.width * self.height - self.number_of_mines - self.number_of_opened_fields == 0
+    }
+
     pub fn print(&self) {
         for row in self.fields.iter() {
             for cell in row.iter() {
@@ -137,10 +143,14 @@ impl Table {
             }
             println!("");
         }
-        println!(
-            "Number of fields that are needed to be opened: {}",
-            self.width * self.height - self.number_of_mines - self.number_of_opened_fields
-        );
+        if self.all_fields_are_open() {
+            println!("You are the winner!");
+        } else {
+            println!(
+                "Number of fields that are needed to be opened: {}",
+                self.width * self.height - self.number_of_mines - self.number_of_opened_fields
+            );
+        }
     }
 
     pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenResult, &'static str> {
@@ -168,6 +178,10 @@ impl Table {
             }
         }
 
-        Ok(OpenResult::Ok)
+        if self.all_fields_are_open() {
+            Ok(OpenResult::WINNER)
+        } else {
+            Ok(OpenResult::Ok)
+        }
     }
 }
