@@ -26,6 +26,30 @@ const NEIGHBOR_OFFSETS: [(i8, i8); 8] = [
     (1, 1),
 ];
 
+fn generate_mine_locations(
+    width: usize,
+    height: usize,
+    number_of_mines: usize,
+) -> Result<HashSet<(usize, usize)>, &'static str> {
+    let max_number_of_mines = (width as f32 * height as f32 * 0.5) as usize;
+    let min_number_of_mines = (width as f32 * height as f32 * 0.05) as usize;
+    if max_number_of_mines < number_of_mines {
+        return Err("Too much mines!");
+    }
+    if min_number_of_mines > number_of_mines {
+        return Err("Too few mines!");
+    }
+
+    let mut mine_locations = HashSet::new();
+    while (mine_locations.len() as usize) < number_of_mines {
+        mine_locations.insert((
+            rand::random::<usize>() % height,
+            rand::random::<usize>() % width,
+        ));
+    }
+    Ok(mine_locations)
+}
+
 fn get_neighbor_fields(width: usize, height: usize, row: usize, col: usize) -> Vec<(usize, usize)> {
     fn add(u: usize, i: i8) -> Option<usize> {
         if i.is_negative() {
@@ -49,79 +73,50 @@ fn get_neighbor_fields(width: usize, height: usize, row: usize, col: usize) -> V
     neighbors
 }
 
-impl Table {
-    fn generate_mine_locations(
-        width: usize,
-        height: usize,
-        number_of_mines: usize,
-    ) -> Result<HashSet<(usize, usize)>, &'static str> {
-        let max_number_of_mines = (width as f32 * height as f32 * 0.5) as usize;
-        let min_number_of_mines = (width as f32 * height as f32 * 0.05) as usize;
-        if max_number_of_mines < number_of_mines {
-            return Err("Too much mines!");
+fn get_field_value(
+    width: usize,
+    height: usize,
+    row: usize,
+    col: usize,
+    mine_locations: &HashSet<(usize, usize)>,
+) -> Result<usize, &'static str> {
+    if mine_locations.contains(&(row, col)) {
+        return Err("Mine does not have value!");
+    }
+    let mut field_value: usize = 0;
+    for (r, c) in get_neighbor_fields(width, height, row, col) {
+        if mine_locations.contains(&(r, c)) {
+            field_value = field_value + 1;
         }
-        if min_number_of_mines > number_of_mines {
-            return Err("Too few mines!");
-        }
-
-        let mut mine_locations = HashSet::new();
-        while (mine_locations.len() as usize) < number_of_mines {
-            mine_locations.insert((
-                rand::random::<usize>() % height,
-                rand::random::<usize>() % width,
-            ));
-        }
-        Ok(mine_locations)
     }
 
-    fn get_neighbor_fields(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
-        get_neighbor_fields(self.width, self.height, row, col)
-    }
-
-    fn get_field_value(
-        width: usize,
-        height: usize,
-        row: usize,
-        col: usize,
-        mine_locations: &HashSet<(usize, usize)>,
-    ) -> Result<usize, &'static str> {
-        if mine_locations.contains(&(row, col)) {
-            return Err("Mine does not have value!");
-        }
-        let mut field_value: usize = 0;
-        for (r, c) in get_neighbor_fields(width, height, row, col) {
+    Ok(field_value)
+}
+fn generate_fields(
+    width: usize,
+    height: usize,
+    mine_locations: &HashSet<(usize, usize)>,
+) -> Result<Vec<Vec<Box<dyn Field>>>, &'static str> {
+    let mut fields = Vec::<Vec<Box<dyn Field>>>::new();
+    for r in 0..height {
+        let mut row = Vec::<Box<dyn Field>>::new();
+        for c in 0..width {
             if mine_locations.contains(&(r, c)) {
-                field_value = field_value + 1;
+                row.push(Field::new(true, 0));
+            } else {
+                let value = get_field_value(width, height, r, c, mine_locations)?;
+                row.push(Field::new(false, value as u8))
             }
         }
-
-        Ok(field_value)
+        fields.push(row);
     }
+    Ok(fields)
+}
 
-    fn generate_fields(
-        width: usize,
-        height: usize,
-        mine_locations: &HashSet<(usize, usize)>,
-    ) -> Result<Vec<Vec<Box<dyn Field>>>, &'static str> {
-        let mut fields = Vec::<Vec<Box<dyn Field>>>::new();
-        for r in 0..height {
-            let mut row = Vec::<Box<dyn Field>>::new();
-            for c in 0..width {
-                if mine_locations.contains(&(r, c)) {
-                    row.push(Field::new(true, 0));
-                } else {
-                    let value = Table::get_field_value(width, height, r, c, mine_locations)?;
-                    row.push(Field::new(false, value as u8))
-                }
-            }
-            fields.push(row);
-        }
-        Ok(fields)
-    }
-
+impl Table {
     pub fn new(width: usize, height: usize, number_of_mines: usize) -> Result<Table, &'static str> {
-        let mine_locations = Table::generate_mine_locations(width, height, number_of_mines)?;
-        let fields = Table::generate_fields(width, height, &mine_locations)?;
+        let mine_locations = generate_mine_locations(width, height, number_of_mines)?;
+        let fields = generate_fields(width, height, &mine_locations)?;
         Ok(Table {
             width,
             height,
@@ -129,6 +124,10 @@ impl Table {
             number_of_opened_fields: 0,
             fields,
         })
+    }
+
+    fn get_neighbor_fields(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
+        get_neighbor_fields(self.width, self.height, row, col)
     }
 
     pub fn print(&self) {
