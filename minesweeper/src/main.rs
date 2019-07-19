@@ -1,8 +1,10 @@
 mod logic;
-use logic::table::{Table};
+use logic::game::{Game, GameLevel};
 
 fn main() {
-    let mut d = Table::new(25, 25, 50).unwrap();
-    d.open_field(1, 1).unwrap();
-    d.print();
+    let mut g = Game::new(GameLevel::Expert);
+    g.open(1, 1).unwrap();
+    g.open(9, 9).unwrap();
+    g.table.print();
+    //d.print();
 }
