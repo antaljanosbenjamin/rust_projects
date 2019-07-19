@@ -6,7 +6,7 @@ pub struct Table {
     width: usize,
     height: usize,
     number_of_mines: usize,
-    mine_locations: HashSet<(usize, usize)>,
+    number_of_opened_fields: usize,
     fields: Vec<Vec<Box<dyn Field>>>,
 }
 
@@ -74,21 +74,6 @@ impl Table {
         Ok(mine_locations)
     }
 
-    fn get_field_mut(
-        &mut self,
-        row: usize,
-        col: usize,
-    ) -> Result<&mut Box<dyn Field>, &'static str> {
-        if self.height <= row {
-            return Err("The row does not exist!");
-        }
-        if self.width <= col {
-            return Err("The column does not exist!");
-        }
-
-        Ok(&mut self.fields[row][col])
-    }
-
     fn get_neighbor_fields(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
         get_neighbor_fields(self.width, self.height, row, col)
     }
@@ -141,8 +126,8 @@ impl Table {
             width,
             height,
             number_of_mines,
-            mine_locations: mine_locations,
-            fields: fields,
+            number_of_opened_fields: 0,
+            fields,
         })
     }
 
@@ -153,7 +138,10 @@ impl Table {
             }
             println!("");
         }
-        
+        println!(
+            "Number of fields that are needed to be opened: {}",
+            self.width * self.height - self.number_of_mines - self.number_of_opened_fields
+        );
     }
 
     pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenResult, &'static str> {
@@ -163,11 +151,13 @@ impl Table {
 
         while !fields_to_open.is_empty() {
             let (r, c) = fields_to_open.pop().unwrap();
-            let field = self.get_field_mut(r, c)?;
-
-            match field.as_mut().open() {
+            match self.fields[r][c].as_mut().open() {
                 FieldOpenResult::MultiOpen => {
+                    self.number_of_opened_fields = self.number_of_opened_fields + 1;
                     fields_to_open.extend(self.get_neighbor_fields(r, c).into_iter());
+                }
+                FieldOpenResult::SimpleOpen => {
+                    self.number_of_opened_fields = self.number_of_opened_fields + 1;
                 }
                 FieldOpenResult::Boom => return Ok(OpenResult::Boom),
                 _ => (),
