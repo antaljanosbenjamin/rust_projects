@@ -34,6 +34,7 @@ fn generate_mine_locations(
 ) -> Result<HashSet<(usize, usize)>, &'static str> {
     let max_number_of_mines = (width as f32 * height as f32 * 0.5) as usize;
     let min_number_of_mines = (width as f32 * height as f32 * 0.05) as usize;
+
     if max_number_of_mines < number_of_mines {
         return Err("Too much mines!");
     }
@@ -85,6 +86,7 @@ fn get_field_value(
         return Err("Mine does not have value!");
     }
     let mut field_value: usize = 0;
+
     for (r, c) in get_neighbor_fields(width, height, row, col) {
         if mine_locations.contains(&(r, c)) {
             field_value = field_value + 1;
@@ -100,6 +102,7 @@ fn generate_fields(
     mine_locations: &HashSet<(usize, usize)>,
 ) -> Result<Vec<Vec<Box<dyn Field>>>, &'static str> {
     let mut fields = Vec::<Vec<Box<dyn Field>>>::new();
+
     for r in 0..height {
         let mut row = Vec::<Box<dyn Field>>::new();
         for c in 0..width {
@@ -143,6 +146,7 @@ impl Table {
             }
             println!("");
         }
+
         if self.all_fields_are_open() {
             println!("You are the winner!");
         } else {
@@ -171,8 +175,8 @@ impl Table {
                 FieldOpenResult::Boom => return Ok(OpenResult::Boom),
                 _ => (),
             }
-
             recently_opened_fields.insert((r, c));
+
             if recently_opened_fields.contains(&(r, c)) {
                 continue;
             }
