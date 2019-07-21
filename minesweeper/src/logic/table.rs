@@ -5,7 +5,7 @@ use std::collections::HashSet;
 pub struct Table {
     width: usize,
     height: usize,
-    number_of_mines: usize,
+    mine_locations: HashSet<(usize, usize)>,
     number_of_opened_fields: usize,
     fields: Vec<Vec<Box<dyn Field>>>,
 }
@@ -94,7 +94,12 @@ fn generate_mine_locations(
     Ok(mine_locations)
 }
 
-fn get_neighbor_fields(width: usize, height: usize, row: usize, col: usize) -> Vec<(usize, usize)> {
+fn get_neighbor_fields(
+    width: usize,
+    height: usize,
+    row: usize,
+    col: usize,
+) -> HashSet<(usize, usize)> {
     fn add(u: usize, i: i8) -> Option<usize> {
         if i.is_negative() {
             u.checked_sub(i.wrapping_abs() as u8 as usize)
@@ -103,12 +108,12 @@ fn get_neighbor_fields(width: usize, height: usize, row: usize, col: usize) -> V
         }
     };
 
-    let mut neighbors = Vec::new();
+    let mut neighbors = HashSet::new();
 
     for offset in NEIGHBOR_OFFSETS.iter() {
         match (add(row, offset.0), add(col, offset.1)) {
             (Some(r), Some(c)) if r < height && c < width => {
-                neighbors.push((r, c));
+                neighbors.insert((r, c));
             }
             _ => (),
         }
@@ -123,11 +128,11 @@ fn get_field_value(
     row: usize,
     col: usize,
     mine_locations: &HashSet<(usize, usize)>,
-) -> Result<usize, &'static str> {
+) -> Result<u8, &'static str> {
     if mine_locations.contains(&(row, col)) {
         return Err("Mine does not have value!");
     }
-    let mut field_value: usize = 0;
+    let mut field_value: u8 = 0;
 
     for (r, c) in get_neighbor_fields(width, height, row, col) {
         if mine_locations.contains(&(r, c)) {
@@ -152,7 +157,7 @@ fn generate_fields(
                 row.push(Field::new(true, 0));
             } else {
                 let value = get_field_value(width, height, r, c, mine_locations)?;
-                row.push(Field::new(false, value as u8))
+                row.push(Field::new(false, value))
             }
         }
         fields.push(row);
@@ -167,18 +172,18 @@ impl Table {
         Ok(Table {
             width,
             height,
-            number_of_mines,
+            mine_locations,
             number_of_opened_fields: 0,
             fields,
         })
     }
 
-    fn get_neighbor_fields(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
+    fn get_neighbor_fields(&self, row: usize, col: usize) -> HashSet<(usize, usize)> {
         get_neighbor_fields(self.width, self.height, row, col)
     }
 
     fn all_fields_are_open(&self) -> bool {
-        self.width * self.height - self.number_of_mines - self.number_of_opened_fields == 0
+        self.width * self.height == self.mine_locations.len() + self.number_of_opened_fields
     }
 
     pub fn print(&self) {
@@ -194,33 +199,64 @@ impl Table {
         } else {
             println!(
                 "Number of fields that are needed to be opened: {}",
-                self.width * self.height - self.number_of_mines - self.number_of_opened_fields
+                self.width * self.height - self.mine_locations.len() - self.number_of_opened_fields
             );
         }
     }
 
-    pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenResult, &'static str> {
-        let mut fields_to_open = IndexSet::new();
-        let mut recently_opened_fields = HashSet::new();
-        fields_to_open.insert((row, col));
+    fn move_mine(&mut self, row: usize, col: usize) {
+        if self.fields[row][col].is_mine() {
+            let mut new_place = (0, 0);
+            let mut visiter = FieldVisiter::new(self.width, self.height, row, col);
+            while let Some((r, c)) = visiter.next() {
+                if !self.fields[r][c].is_mine() {
+                    new_place = (r, c);
+                    break;
+                }
+                visiter.extend_with_unvisited_neighbors(r, c);
+            }
 
-        while !fields_to_open.is_empty() {
-            let (r, c) = fields_to_open.pop().unwrap();
+            self.fields[new_place.0][new_place.1] = Field::new(true, 0);
+            self.fields[row][col] = Field::new(false, 0);
+            self.mine_locations.remove(&(row, col));
+            self.mine_locations.insert(new_place);
+            let mut fields_to_recalculate = HashSet::new();
+            fields_to_recalculate.extend(self.get_neighbor_fields(row, col).into_iter());
+            fields_to_recalculate.extend(
+                self.get_neighbor_fields(new_place.0, new_place.1)
+                    .into_iter(),
+            );
+            fields_to_recalculate.insert((row, col));
+            for (r, c) in fields_to_recalculate {
+                if !self.fields[r][c].is_mine() {
+                    self.fields[r][c] = Field::new(
+                        false,
+                        get_field_value(self.width, self.height, r, c, &self.mine_locations)
+                            .unwrap(),
+                    );
+                }
+            }
+        }
+    }
+
+    pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenResult, &'static str> {
+        if self.number_of_opened_fields == 0 && self.fields[row][col].is_mine() {
+            self.move_mine(row, col);
+        }
+
+        let mut visiter = FieldVisiter::new(self.width, self.height, row, col);
+
+        while let Some((r, c)) = visiter.next() {
             match self.fields[r][c].as_mut().open() {
                 FieldOpenResult::MultiOpen => {
                     self.number_of_opened_fields = self.number_of_opened_fields + 1;
-                    fields_to_open.extend(self.get_neighbor_fields(r, c).into_iter());
+                    visiter.extend_with_unvisited_neighbors(r, c);
                 }
                 FieldOpenResult::SimpleOpen => {
                     self.number_of_opened_fields = self.number_of_opened_fields + 1;
                 }
                 FieldOpenResult::Boom => return Ok(OpenResult::Boom),
                 _ => (),
-            }
-            recently_opened_fields.insert((r, c));
-
-            if recently_opened_fields.contains(&(r, c)) {
-                continue;
             }
         }
 
