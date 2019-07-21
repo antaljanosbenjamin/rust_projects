@@ -32,8 +32,8 @@ fn generate_mine_locations(
     height: usize,
     number_of_mines: usize,
 ) -> Result<HashSet<(usize, usize)>, &'static str> {
-    let max_number_of_mines = (width as f32 * height as f32 * 0.5) as usize;
-    let min_number_of_mines = (width as f32 * height as f32 * 0.05) as usize;
+    let max_number_of_mines = (width * height - 1) as usize;
+    let min_number_of_mines = 1;
 
     if max_number_of_mines < number_of_mines {
         return Err("Too much mines!");
