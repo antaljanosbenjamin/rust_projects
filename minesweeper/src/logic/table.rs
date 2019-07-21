@@ -10,6 +10,48 @@ pub struct Table {
     fields: Vec<Vec<Box<dyn Field>>>,
 }
 
+struct FieldVisiter {
+    width: usize,
+    height: usize,
+    starting_field: (usize, usize),
+    fields_to_visit: IndexSet<(usize, usize)>,
+    visited_fields: HashSet<(usize, usize)>,
+}
+
+impl FieldVisiter {
+    fn new(width: usize, height: usize, row: usize, col: usize) -> FieldVisiter {
+        let mut fields_to_visit = IndexSet::new();
+        fields_to_visit.insert((row, col));
+        FieldVisiter {
+            width,
+            height,
+            starting_field: (row, col),
+            fields_to_visit,
+            visited_fields: HashSet::new(),
+        }
+    }
+
+    fn extend_with_unvisited_neighbors(&mut self, row: usize, col: usize) {
+        let fields_to_extend: HashSet<(usize, usize)> =
+            get_neighbor_fields(self.width, self.height, row, col)
+                .difference(&self.visited_fields)
+                .cloned()
+                .collect();
+        self.fields_to_visit.extend(fields_to_extend);
+    }
+
+    // This can be rewritten as an Iterator?
+    fn next(&mut self) -> Option<(usize, usize)> {
+        if !self.fields_to_visit.is_empty() {
+            let result = self.fields_to_visit.pop().unwrap();
+            self.visited_fields.insert(result);
+            Some(result)
+        } else {
+            None
+        }
+    }
+}
+
 pub enum OpenResult {
     Ok,
     Boom,
@@ -187,5 +229,41 @@ impl Table {
         } else {
             Ok(OpenResult::Ok)
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn field_visiter() {
+        let table = Table::new(10, 10, 10).unwrap();
+        let mut visiter = FieldVisiter::new(table.width, table.height, 5, 5);
+        let mut expected_fields_to_visit = IndexSet::new();
+        expected_fields_to_visit.insert((5, 5));
+        assert!(visiter.fields_to_visit == expected_fields_to_visit);
+        visiter.extend_with_unvisited_neighbors(5, 5);
+        for i in 4..7 {
+            for j in 4..7 {
+                expected_fields_to_visit.insert((i, j));
+            }
+        }
+        assert!(visiter.fields_to_visit == expected_fields_to_visit);
+
+        let mut item = visiter.next().unwrap();
+        expected_fields_to_visit.remove(&item);
+        item = visiter.next().unwrap();
+        expected_fields_to_visit.remove(&item);
+        item = visiter.next().unwrap();
+        expected_fields_to_visit.remove(&item);
+        assert!(visiter.fields_to_visit == expected_fields_to_visit);
+        visiter.extend_with_unvisited_neighbors(5, 5);
+        assert!(visiter.fields_to_visit == expected_fields_to_visit);
+        while let Some(item) = visiter.next() {
+            expected_fields_to_visit.remove(&item);
+            visiter.extend_with_unvisited_neighbors(5, 5);
+        }
+        assert!(visiter.fields_to_visit == expected_fields_to_visit);
     }
 }

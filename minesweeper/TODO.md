@@ -6,3 +6,4 @@
 * ~~Add logic to indicate happy ending~~
 * Add timer
 * Add flags to fields
+* Rewrite FieldVisiter as Iterator if possible
