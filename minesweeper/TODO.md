@@ -6,5 +6,6 @@
 * ~~Add logic to indicate happy ending~~
 * ~~Add timer~~
 * ~~Add flags to fields~~
+* Rewrite mine moving logic to change only field type, but not the state 
 * Rewrite FieldVisiter as Iterator if possible
 * Create different methods for create mines and other fields
