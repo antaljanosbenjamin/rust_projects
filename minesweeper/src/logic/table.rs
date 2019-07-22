@@ -6,6 +6,7 @@ use std::collections::HashSet;
 pub enum FieldState {
     Closed,
     Opened,
+    Flagged,
 }
 
 #[derive(PartialEq)]
@@ -18,6 +19,10 @@ enum FieldType {
 impl FieldState {
     fn is_opened(&self) -> bool {
         self == &FieldState::Opened
+    }
+
+    fn is_flagged(&self) -> bool {
+        self == &FieldState::Flagged
     }
 }
 
@@ -78,11 +83,27 @@ impl FieldInner {
     }
 
     fn open(&mut self) -> FieldOpenResult {
-        if self.get_field_state().is_opened() {
+        if self.get_field_state().is_flagged() {
+            FieldOpenResult::IsFlagged
+        } else if self.get_field_state().is_opened() {
             FieldOpenResult::AlreadyOpened
         } else {
             self.state = FieldState::Opened;
             self.get_open_result_inner()
+        }
+    }
+
+    fn toggle_flag(&mut self) -> FieldFlagResult {
+        if self.state.is_flagged() {
+            self.state = FieldState::Closed;
+            FieldFlagResult::Unflagged
+        } else {
+            if !self.get_field_state().is_opened() {
+                self.state = FieldState::Flagged;
+                FieldFlagResult::Flagged
+            } else {
+                FieldFlagResult::AlreadyOpened
+            }
         }
     }
 }
@@ -379,6 +400,14 @@ impl Table {
             Ok(OpenResult::WINNER)
         } else {
             Ok(OpenResult::Ok)
+        }
+    }
+
+    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<bool, &'static str> {
+        if row >= self.height || col >= self.width {
+            Err("Invalid index!")
+        } else {
+            Ok(self.fields[row][col].toggle_flag() == FieldFlagResult::Flagged)
         }
     }
 }

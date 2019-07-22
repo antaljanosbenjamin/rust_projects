@@ -45,4 +45,9 @@ impl Game {
             }
         }
     }
+
+    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<(), &'static str>  {
+        self.table.toggle_flag(row, col)?;
+        Ok(())
+    }
 }
