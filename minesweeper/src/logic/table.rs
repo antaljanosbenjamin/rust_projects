@@ -1,13 +1,119 @@
-use crate::logic::field::{Field, FieldOpenResult};
 use indexmap::IndexSet;
+use std::char;
 use std::collections::HashSet;
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum FieldState {
+    Closed,
+    Opened,
+}
+
+#[derive(PartialEq)]
+enum FieldType {
+    Empty,
+    Numbered(u8),
+    Mine,
+}
+
+impl FieldState {
+    fn is_opened(&self) -> bool {
+        self == &FieldState::Opened
+    }
+}
+
+#[derive(PartialEq)]
+pub enum FieldFlagResult {
+    Flagged,
+    Unflagged,
+    AlreadyOpened,
+}
+
+#[derive(PartialEq)]
+enum FieldOpenResult {
+    AlreadyOpened,
+    SimpleOpen,
+    MultiOpen,
+    Boom,
+    IsFlagged,
+}
+
+pub trait Field {
+    fn get_field_state(&self) -> FieldState;
+    fn get_char_repr(&self) -> char;
+
+    fn is_mine(&self) -> bool;
+}
+
+impl Field {
+    pub fn new(mine: bool, value: u8) -> FieldInner {
+        if mine {
+            FieldInner::new(FieldType::Mine)
+        } else if value == 0 {
+            FieldInner::new(FieldType::Empty)
+        } else {
+            FieldInner::new(FieldType::Numbered(value))
+        }
+    }
+}
+
+struct FieldInner {
+    field_type: FieldType,
+    state: FieldState,
+}
+
+impl FieldInner {
+    fn new(field_type: FieldType) -> FieldInner {
+        FieldInner {
+            field_type,
+            state: FieldState::Closed,
+        }
+    }
+
+    fn get_open_result_inner(&self) -> FieldOpenResult {
+        match self.field_type {
+            FieldType::Empty => FieldOpenResult::MultiOpen,
+            FieldType::Numbered(_) => FieldOpenResult::SimpleOpen,
+            FieldType::Mine => FieldOpenResult::Boom,
+        }
+    }
+
+    fn open(&mut self) -> FieldOpenResult {
+        if self.get_field_state().is_opened() {
+            FieldOpenResult::AlreadyOpened
+        } else {
+            self.state = FieldState::Opened;
+            self.get_open_result_inner()
+        }
+    }
+}
+
+impl Field for FieldInner {
+    fn get_field_state(&self) -> FieldState {
+        self.state
+    }
+    fn get_char_repr(&self) -> char {
+        if !self.state.is_opened() {
+            'O'
+        } else {
+            match self.field_type {
+                FieldType::Empty => ' ',
+                FieldType::Numbered(x) => std::char::from_digit(x as u32, 10).unwrap(),
+                FieldType::Mine => 'X',
+            }
+        }
+    }
+
+    fn is_mine(&self) -> bool {
+        self.field_type == FieldType::Mine
+    }
+}
 
 pub struct Table {
     width: usize,
     height: usize,
     mine_locations: HashSet<(usize, usize)>,
     number_of_opened_fields: usize,
-    fields: Vec<Vec<Box<dyn Field>>>,
+    fields: Vec<Vec<FieldInner>>,
 }
 
 struct FieldVisiter {
@@ -18,14 +124,23 @@ struct FieldVisiter {
 }
 
 impl FieldVisiter {
-    fn new(width: usize, height: usize, row: usize, col: usize) -> FieldVisiter {
-        let mut fields_to_visit = IndexSet::new();
-        fields_to_visit.insert((row, col));
-        FieldVisiter {
-            width,
-            height,
-            fields_to_visit,
-            visited_fields: HashSet::new(),
+    fn new(
+        width: usize,
+        height: usize,
+        row: usize,
+        col: usize,
+    ) -> Result<FieldVisiter, &'static str> {
+        if row >= height || col >= width {
+            Err("Invalid index!")
+        } else {
+            let mut fields_to_visit = IndexSet::new();
+            fields_to_visit.insert((row, col));
+            Ok(FieldVisiter {
+                width,
+                height,
+                fields_to_visit,
+                visited_fields: HashSet::new(),
+            })
         }
     }
 
@@ -145,11 +260,11 @@ fn generate_fields(
     width: usize,
     height: usize,
     mine_locations: &HashSet<(usize, usize)>,
-) -> Result<Vec<Vec<Box<dyn Field>>>, &'static str> {
-    let mut fields = Vec::<Vec<Box<dyn Field>>>::new();
+) -> Result<Vec<Vec<FieldInner>>, &'static str> {
+    let mut fields = Vec::new();
 
     for r in 0..height {
-        let mut row = Vec::<Box<dyn Field>>::new();
+        let mut row = Vec::new();
         for c in 0..width {
             if mine_locations.contains(&(r, c)) {
                 row.push(Field::new(true, 0));
@@ -202,10 +317,10 @@ impl Table {
         }
     }
 
-    fn move_mine(&mut self, row: usize, col: usize) {
+    fn move_mine(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
         if self.fields[row][col].is_mine() {
             let mut new_place = (0, 0);
-            let mut visiter = FieldVisiter::new(self.width, self.height, row, col);
+            let mut visiter = FieldVisiter::new(self.width, self.height, row, col)?;
             while let Some((r, c)) = visiter.next() {
                 if !self.fields[r][c].is_mine() {
                     new_place = (r, c);
@@ -235,17 +350,19 @@ impl Table {
                 }
             }
         }
+
+        Ok(())
     }
 
     pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenResult, &'static str> {
         if self.number_of_opened_fields == 0 && self.fields[row][col].is_mine() {
-            self.move_mine(row, col);
+            self.move_mine(row, col)?;
         }
 
-        let mut visiter = FieldVisiter::new(self.width, self.height, row, col);
+        let mut visiter = FieldVisiter::new(self.width, self.height, row, col)?;
 
         while let Some((r, c)) = visiter.next() {
-            match self.fields[r][c].as_mut().open() {
+            match self.fields[r][c].open() {
                 FieldOpenResult::MultiOpen => {
                     self.number_of_opened_fields = self.number_of_opened_fields + 1;
                     visiter.extend_with_unvisited_neighbors(r, c);
@@ -273,7 +390,7 @@ mod test {
     #[test]
     fn field_visiter() {
         let table = Table::new(10, 10, 10).unwrap();
-        let mut visiter = FieldVisiter::new(table.width, table.height, 5, 5);
+        let mut visiter = FieldVisiter::new(table.width, table.height, 5, 5).unwrap();
         let mut expected_fields_to_visit = IndexSet::new();
         expected_fields_to_visit.insert((5, 5));
         assert!(visiter.fields_to_visit == expected_fields_to_visit);
