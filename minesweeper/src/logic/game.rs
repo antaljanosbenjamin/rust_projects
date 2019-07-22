@@ -18,11 +18,15 @@ impl Game {
         match level {
             GameLevel::Beginner => Game::new_custom(10, 10, 10).unwrap(),
             GameLevel::Intermediate => Game::new_custom(16, 16, 25).unwrap(),
-            GameLevel::Expert => Game::new_custom(30, 16, 99).unwrap()
+            GameLevel::Expert => Game::new_custom(30, 16, 99).unwrap(),
         }
     }
 
-    pub fn new_custom(width: usize, height: usize, number_of_mines: usize) -> Result<Game, &'static str> {
+    pub fn new_custom(
+        width: usize,
+        height: usize,
+        number_of_mines: usize,
+    ) -> Result<Game, &'static str> {
         let table = Table::new(width, height, number_of_mines)?;
         Ok(Game {
             table,

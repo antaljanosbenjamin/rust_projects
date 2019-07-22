@@ -26,7 +26,7 @@ pub trait FieldInner {
     fn get_field_state(&self) -> &FieldState;
 }
 
-pub trait Field : FieldInner {
+pub trait Field: FieldInner {
     fn get_char_repr(&self) -> char {
         if !self.get_field_state().is_opened() {
             'O'
@@ -77,7 +77,6 @@ impl FieldInner for EmptyField {
 }
 
 impl Field for EmptyField {
-
     fn open(&mut self) -> FieldOpenResult {
         if self.state.is_opened() {
             FieldOpenResult::AlreadyOpened
@@ -134,7 +133,6 @@ impl MineField {
         }
     }
 }
-
 
 impl FieldInner for MineField {
     fn get_char_repr_inner(&self) -> char {
