@@ -7,3 +7,4 @@
 * ~~Add timer~~
 * Add flags to fields
 * Rewrite FieldVisiter as Iterator if possible
+* Create different methods for create mines and other fields
