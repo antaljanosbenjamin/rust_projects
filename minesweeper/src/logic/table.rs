@@ -45,20 +45,7 @@ enum FieldOpenResult {
 pub trait Field {
     fn get_field_state(&self) -> FieldState;
     fn get_char_repr(&self) -> char;
-
     fn is_mine(&self) -> bool;
-}
-
-impl Field {
-    pub fn new(mine: bool, value: u8) -> FieldInner {
-        if mine {
-            FieldInner::new(FieldType::Mine)
-        } else if value == 0 {
-            FieldInner::new(FieldType::Empty)
-        } else {
-            FieldInner::new(FieldType::Numbered(value))
-        }
-    }
 }
 
 struct FieldInner {
@@ -67,11 +54,34 @@ struct FieldInner {
 }
 
 impl FieldInner {
-    fn new(field_type: FieldType) -> FieldInner {
+    fn new_mine() -> FieldInner {
         FieldInner {
-            field_type,
+            field_type: FieldType::Mine,
             state: FieldState::Closed,
         }
+    }
+
+    fn new_with_value(value: u8) -> FieldInner {
+        FieldInner {
+            field_type: FieldInner::create_field_type_with_value(value),
+            state: FieldState::Closed,
+        }
+    }
+
+    fn create_field_type_with_value(value: u8) -> FieldType {
+        if value == 0 {
+            FieldType::Empty
+        } else {
+            FieldType::Numbered(value)
+        }
+    }
+
+    fn update_type_to_mine(&mut self) {
+        self.field_type = FieldType::Mine;
+    }
+
+    fn update_type_with_value(&mut self, value: u8) {
+        self.field_type = FieldInner::create_field_type_with_value(value);
     }
 
     fn get_open_result_inner(&self) -> FieldOpenResult {
@@ -112,8 +122,11 @@ impl Field for FieldInner {
     fn get_field_state(&self) -> FieldState {
         self.state
     }
+
     fn get_char_repr(&self) -> char {
-        if !self.state.is_opened() {
+        if self.state.is_flagged() {
+            'H'
+        } else if !self.state.is_opened() {
             'O'
         } else {
             match self.field_type {
@@ -288,10 +301,10 @@ fn generate_fields(
         let mut row = Vec::new();
         for c in 0..width {
             if mine_locations.contains(&(r, c)) {
-                row.push(Field::new(true, 0));
+                row.push(FieldInner::new_mine());
             } else {
                 let value = get_field_value(width, height, r, c, mine_locations)?;
-                row.push(Field::new(false, value))
+                row.push(FieldInner::new_with_value(value))
             }
         }
         fields.push(row);
@@ -350,8 +363,8 @@ impl Table {
                 visiter.extend_with_unvisited_neighbors(r, c);
             }
 
-            self.fields[new_place.0][new_place.1] = Field::new(true, 0);
-            self.fields[row][col] = Field::new(false, 0);
+            self.fields[new_place.0][new_place.1].update_type_to_mine();
+            self.fields[row][col].update_type_with_value(0);
             self.mine_locations.remove(&(row, col));
             self.mine_locations.insert(new_place);
             let mut fields_to_recalculate = HashSet::new();
@@ -363,8 +376,7 @@ impl Table {
             fields_to_recalculate.insert((row, col));
             for (r, c) in fields_to_recalculate {
                 if !self.fields[r][c].is_mine() {
-                    self.fields[r][c] = Field::new(
-                        false,
+                    self.fields[r][c].update_type_with_value(
                         get_field_value(self.width, self.height, r, c, &self.mine_locations)
                             .unwrap(),
                     );
