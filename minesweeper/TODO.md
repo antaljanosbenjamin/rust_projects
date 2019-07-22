@@ -4,6 +4,6 @@
 * Refactor FieldState to reduce code duplication
 * ~~Add mechanism to indicate BOOM~~
 * ~~Add logic to indicate happy ending~~
-* Add timer
+* ~~Add timer~~
 * Add flags to fields
 * Rewrite FieldVisiter as Iterator if possible

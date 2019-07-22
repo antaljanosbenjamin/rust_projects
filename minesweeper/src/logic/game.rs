@@ -1,4 +1,5 @@
 use crate::logic::table::{OpenResult, Table};
+use hrsw::Stopwatch;
 
 pub enum GameLevel {
     Beginner,
@@ -9,6 +10,7 @@ pub enum GameLevel {
 pub struct Game {
     // TODO remove this pub
     pub table: Table,
+    stopwatch: Stopwatch,
 }
 
 impl Game {
@@ -22,16 +24,21 @@ impl Game {
 
     pub fn new_custom(width: usize, height: usize, number_of_mines: usize) -> Result<Game, &'static str> {
         let table = Table::new(width, height, number_of_mines)?;
-        Ok(Game{table})
+        Ok(Game {
+            table,
+            stopwatch: Stopwatch::new(),
+        })
     }
 
-    pub fn open(&mut self, row: usize, col:usize) -> Result<(), &'static str> {
-        // start timer here...
-        match self.table.open_field(row, col)?{
+    pub fn open(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
+        self.stopwatch.start();
+        match self.table.open_field(row, col)? {
             OpenResult::Ok => Ok(()),
-            OpenResult::Boom => Ok(()),
-            OpenResult::WINNER => Ok(()),
+            OpenResult::Boom | OpenResult::WINNER => {
+                self.stopwatch.stop();
+                println!("{}", self.stopwatch.elapsed().as_millis() as f32 / 1000.0);
+                Ok(())
+            }
         }
     }
 }
-
