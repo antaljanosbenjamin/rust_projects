@@ -20,13 +20,15 @@ pub enum FieldOpenResult {
     Boom,
 }
 
-pub trait FieldInner {
+pub trait Field {
+    fn get_field_state(&self) -> &FieldState;
+
+    fn set_field_state(&mut self, state: FieldState);
+
     fn get_char_repr_inner(&self) -> char;
 
-    fn get_field_state(&self) -> &FieldState;
-}
+    fn get_open_result_inner(&self) -> FieldOpenResult;
 
-pub trait Field: FieldInner {
     fn get_char_repr(&self) -> char {
         if !self.get_field_state().is_opened() {
             'O'
@@ -35,7 +37,14 @@ pub trait Field: FieldInner {
         }
     }
 
-    fn open(&mut self) -> FieldOpenResult;
+    fn open(&mut self) -> FieldOpenResult {
+        if self.get_field_state().is_opened() {
+            FieldOpenResult::AlreadyOpened
+        } else {
+            self.set_field_state(FieldState::Opened);
+            self.get_open_result_inner()
+        }
+    }
 
     fn is_mine(&self) -> bool {
         false
@@ -66,24 +75,21 @@ impl EmptyField {
     }
 }
 
-impl FieldInner for EmptyField {
-    fn get_char_repr_inner(&self) -> char {
-        ' '
+impl Field for EmptyField {
+    fn set_field_state(&mut self, state: FieldState) {
+        self.state = state;
     }
 
     fn get_field_state(&self) -> &FieldState {
         &self.state
     }
-}
 
-impl Field for EmptyField {
-    fn open(&mut self) -> FieldOpenResult {
-        if self.state.is_opened() {
-            FieldOpenResult::AlreadyOpened
-        } else {
-            self.state = FieldState::Opened;
-            FieldOpenResult::MultiOpen
-        }
+    fn get_char_repr_inner(&self) -> char {
+        ' '
+    }
+
+    fn get_open_result_inner(&self) -> FieldOpenResult {
+        FieldOpenResult::MultiOpen
     }
 }
 
@@ -101,24 +107,21 @@ impl NumberedField {
     }
 }
 
-impl FieldInner for NumberedField {
-    fn get_char_repr_inner(&self) -> char {
-        std::char::from_digit(self.value as u32, 10).unwrap()
+impl Field for NumberedField {
+    fn set_field_state(&mut self, state: FieldState) {
+        self.state = state;
     }
 
     fn get_field_state(&self) -> &FieldState {
         &self.state
     }
-}
 
-impl Field for NumberedField {
-    fn open(&mut self) -> FieldOpenResult {
-        if self.state.is_opened() {
-            FieldOpenResult::AlreadyOpened
-        } else {
-            self.state = FieldState::Opened;
-            FieldOpenResult::SimpleOpen
-        }
+    fn get_char_repr_inner(&self) -> char {
+        std::char::from_digit(self.value as u32, 10).unwrap()
+    }
+
+    fn get_open_result_inner(&self) -> FieldOpenResult {
+        FieldOpenResult::SimpleOpen
     }
 }
 
@@ -134,24 +137,21 @@ impl MineField {
     }
 }
 
-impl FieldInner for MineField {
-    fn get_char_repr_inner(&self) -> char {
-        'X'
+impl Field for MineField {
+    fn set_field_state(&mut self, state: FieldState) {
+        self.state = state;
     }
 
     fn get_field_state(&self) -> &FieldState {
         &self.state
     }
-}
 
-impl Field for MineField {
-    fn open(&mut self) -> FieldOpenResult {
-        if self.state.is_opened() {
-            FieldOpenResult::AlreadyOpened
-        } else {
-            self.state = FieldState::Opened;
-            FieldOpenResult::Boom
-        }
+    fn get_char_repr_inner(&self) -> char {
+        'X'
+    }
+
+    fn get_open_result_inner(&self) -> FieldOpenResult {
+        FieldOpenResult::Boom
     }
 
     fn is_mine(&self) -> bool {
