@@ -4,11 +4,16 @@ use std::char;
 pub enum FieldState {
     Closed,
     Opened,
+    Flagged,
 }
 
 impl FieldState {
     fn is_opened(&self) -> bool {
         self == &FieldState::Opened
+    }
+
+    fn is_flagged(&self) -> bool {
+        self == &FieldState::Flagged
     }
 }
 
@@ -18,6 +23,7 @@ pub enum FieldOpenResult {
     SimpleOpen,
     MultiOpen,
     Boom,
+    IsFlagged,
 }
 
 pub trait Field {
@@ -38,7 +44,9 @@ pub trait Field {
     }
 
     fn open(&mut self) -> FieldOpenResult {
-        if self.get_field_state().is_opened() {
+        if self.get_field_state().is_flagged() {
+            FieldOpenResult::IsFlagged
+        } else if self.get_field_state().is_opened() {
             FieldOpenResult::AlreadyOpened
         } else {
             self.set_field_state(FieldState::Opened);

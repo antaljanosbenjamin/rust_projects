@@ -13,7 +13,6 @@ pub struct Table {
 struct FieldVisiter {
     width: usize,
     height: usize,
-    starting_field: (usize, usize),
     fields_to_visit: IndexSet<(usize, usize)>,
     visited_fields: HashSet<(usize, usize)>,
 }
@@ -25,7 +24,6 @@ impl FieldVisiter {
         FieldVisiter {
             width,
             height,
-            starting_field: (row, col),
             fields_to_visit,
             visited_fields: HashSet::new(),
         }
