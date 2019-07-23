@@ -7,10 +7,18 @@ pub enum GameLevel {
     Expert,
 }
 
+#[derive(PartialEq)]
+pub enum GameState {
+    NotStarted,
+    Started,
+    Stopped { win: bool },
+}
+
 pub struct Game {
     // TODO remove this pub
     pub table: Table,
     stopwatch: Stopwatch,
+    state: GameState,
 }
 
 impl Game {
@@ -31,22 +39,38 @@ impl Game {
         Ok(Game {
             table,
             stopwatch: Stopwatch::new(),
+            state: GameState::NotStarted,
         })
     }
 
-    pub fn open(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
+    fn start_game_if_needed(&mut self) {
+        if self.state != GameState::NotStarted {
+            return;
+        }
+
         self.stopwatch.start();
+        self.state = GameState::Started;
+    }
+
+    pub fn open(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
+        self.start_game_if_needed();
         match self.table.open_field(row, col)? {
             OpenResult::Ok => Ok(()),
-            OpenResult::Boom | OpenResult::WINNER => {
+            OpenResult::WINNER => {
+                self.state = GameState::Stopped { win: true };
                 self.stopwatch.stop();
-                println!("{}", self.stopwatch.elapsed().as_millis() as f32 / 1000.0);
+                Ok(())
+            }
+            OpenResult::Boom => {
+                self.state = GameState::Stopped { win: false };
+                self.stopwatch.stop();
                 Ok(())
             }
         }
     }
 
-    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<(), &'static str>  {
+    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
+        self.start_game_if_needed();
         self.table.toggle_flag(row, col)?;
         Ok(())
     }
