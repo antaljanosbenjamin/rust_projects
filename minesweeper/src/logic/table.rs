@@ -9,8 +9,8 @@ pub enum FieldState {
     Flagged,
 }
 
-#[derive(PartialEq)]
-enum FieldType {
+#[derive(Clone, Copy, PartialEq)]
+pub enum FieldType {
     Empty,
     Numbered(u8),
     Mine,
@@ -44,14 +44,20 @@ enum FieldOpenResult {
 
 pub trait Field {
     fn get_field_state(&self) -> FieldState;
+    fn get_field_type(&self) -> FieldType;
     fn get_char_repr(&self) -> char;
     fn is_mine(&self) -> bool;
+    fn is_empty(&self) -> bool;
+    fn is_numbered(&self) -> bool;
 }
 
 struct FieldInner {
     field_type: FieldType,
     state: FieldState,
 }
+
+static INVALID_VALUE_ERROR: &'static str = "Invalid value!";
+static OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC: &'static str = "An opened field can not be updated!";
 
 impl FieldInner {
     fn new_with_field_type(field_type: FieldType) -> FieldInner {
@@ -71,7 +77,7 @@ impl FieldInner {
 
     fn new_numbered(value: u8) -> Result<FieldInner, &'static str> {
         if value < 1 || value > 9 {
-            Err("Invalid value!")
+            Err(INVALID_VALUE_ERROR)
         } else {
             Ok(FieldInner::new_with_field_type(FieldType::Numbered(value)))
         }
@@ -79,24 +85,24 @@ impl FieldInner {
 
     fn update_type_to_mine(&mut self) {
         if self.state == FieldState::Opened {
-            panic!("An opened field can not be updated!");
+            panic!(OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC);
         }
         self.field_type = FieldType::Mine;
     }
 
     fn update_type_to_empty(&mut self) {
         if self.state == FieldState::Opened {
-            panic!("An opened field can not be updated!");
+            panic!(OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC);
         }
         self.field_type = FieldType::Empty;
     }
 
     fn update_type_with_value(&mut self, value: u8) -> Result<(), &'static str> {
         if self.state == FieldState::Opened {
-            panic!("An opened field can not be updated!");
+            panic!(OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC);
         }
         if value < 1 || value > 9 {
-            Err("Invalid value!")
+            Err(INVALID_VALUE_ERROR)
         } else {
             self.field_type = FieldType::Numbered(value);
             Ok(())
@@ -142,6 +148,10 @@ impl Field for FieldInner {
         self.state
     }
 
+    fn get_field_type(&self) -> FieldType {
+        self.field_type
+    }
+
     fn get_char_repr(&self) -> char {
         if self.state.is_flagged() {
             'H'
@@ -158,6 +168,17 @@ impl Field for FieldInner {
 
     fn is_mine(&self) -> bool {
         self.field_type == FieldType::Mine
+    }
+
+    fn is_empty(&self) -> bool {
+        self.field_type == FieldType::Empty
+    }
+
+    fn is_numbered(&self) -> bool {
+        match self.field_type {
+            FieldType::Numbered(_) => true,
+            _ => false,
+        }
     }
 }
 
@@ -447,6 +468,22 @@ impl Table {
             Err("Invalid index!")
         } else {
             Ok(self.fields[row][col].toggle_flag())
+        }
+    }
+
+    pub fn get_field_state(&self, row: usize, col: usize) -> Result<FieldState, &'static str> {
+        if row >= self.height || col >= self.width {
+            Err("Invalid index!")
+        } else {
+            Ok(self.fields[row][col].get_field_state())
+        }
+    }
+
+    pub fn get_field_type(&self, row: usize, col: usize) -> Result<FieldType, &'static str> {
+        if row >= self.height || col >= self.width {
+            Err("Invalid index!")
+        } else {
+            Ok(self.fields[row][col].get_field_type())
         }
     }
 }

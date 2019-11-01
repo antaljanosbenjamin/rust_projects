@@ -77,4 +77,12 @@ impl Game {
         self.table.toggle_flag(row, col)?;
         Ok(())
     }
+
+    pub fn get_field_state(&self, row: usize, col: usize) -> Result<FieldState, &'static str> {
+        self.table.get_field_state(row: usize, col: usize)
+    }
+
+    pub fn get_field_type(&self, row: usize, col: usize) -> Result<FieldType, &'static str> {
+        self.table.get_field_type(row: usize, col: usize)
+    }
 }
