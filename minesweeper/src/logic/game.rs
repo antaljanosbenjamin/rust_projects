@@ -15,8 +15,7 @@ pub enum GameState {
 }
 
 pub struct Game {
-    // TODO remove this pub
-    pub table: Table,
+    table: Table,
     stopwatch: Stopwatch,
     state: GameState,
 }
@@ -52,19 +51,23 @@ impl Game {
         self.state = GameState::Started;
     }
 
+    fn stop_game(&mut self, win: bool) -> Result<(), &'static str> {
+        self.stopwatch.stop();
+        self.state = GameState::Stopped { win };
+        Ok(())
+    }
+
     pub fn open(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
         self.start_game_if_needed();
         match self.table.open_field(row, col)? {
             OpenResult::Ok => Ok(()),
             OpenResult::WINNER => {
                 self.state = GameState::Stopped { win: true };
-                self.stopwatch.stop();
-                Ok(())
+                self.stop_game(true)
             }
             OpenResult::Boom => {
                 self.state = GameState::Stopped { win: false };
-                self.stopwatch.stop();
-                Ok(())
+                self.stop_game(false)
             }
         }
     }

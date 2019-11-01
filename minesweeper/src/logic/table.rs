@@ -29,7 +29,7 @@ impl FieldState {
 #[derive(PartialEq)]
 pub enum FieldFlagResult {
     Flagged,
-    Unflagged,
+    FlagRemoved,
     AlreadyOpened,
 }
 
@@ -54,34 +54,53 @@ struct FieldInner {
 }
 
 impl FieldInner {
+    fn new_with_field_type(field_type: FieldType) -> FieldInner {
+        FieldInner {
+            field_type,
+            state: FieldState::Closed,
+        }
+    }
+
     fn new_mine() -> FieldInner {
-        FieldInner {
-            field_type: FieldType::Mine,
-            state: FieldState::Closed,
-        }
+        FieldInner::new_with_field_type(FieldType::Mine)
     }
 
-    fn new_with_value(value: u8) -> FieldInner {
-        FieldInner {
-            field_type: FieldInner::create_field_type_with_value(value),
-            state: FieldState::Closed,
-        }
+    fn new_empty() -> FieldInner {
+        FieldInner::new_with_field_type(FieldType::Empty)
     }
 
-    fn create_field_type_with_value(value: u8) -> FieldType {
-        if value == 0 {
-            FieldType::Empty
+    fn new_numbered(value: u8) -> Result<FieldInner, &'static str> {
+        if value < 1 || value > 9 {
+            Err("Invalid value!")
         } else {
-            FieldType::Numbered(value)
+            Ok(FieldInner::new_with_field_type(FieldType::Numbered(value)))
         }
     }
 
     fn update_type_to_mine(&mut self) {
+        if self.state == FieldState::Opened {
+            panic!("An opened field can not be updated!");
+        }
         self.field_type = FieldType::Mine;
     }
 
-    fn update_type_with_value(&mut self, value: u8) {
-        self.field_type = FieldInner::create_field_type_with_value(value);
+    fn update_type_to_empty(&mut self) {
+        if self.state == FieldState::Opened {
+            panic!("An opened field can not be updated!");
+        }
+        self.field_type = FieldType::Empty;
+    }
+
+    fn update_type_with_value(&mut self, value: u8) -> Result<(), &'static str> {
+        if self.state == FieldState::Opened {
+            panic!("An opened field can not be updated!");
+        }
+        if value < 1 || value > 9 {
+            Err("Invalid value!")
+        } else {
+            self.field_type = FieldType::Numbered(value);
+            Ok(())
+        }
     }
 
     fn get_open_result_inner(&self) -> FieldOpenResult {
@@ -106,7 +125,7 @@ impl FieldInner {
     fn toggle_flag(&mut self) -> FieldFlagResult {
         if self.state.is_flagged() {
             self.state = FieldState::Closed;
-            FieldFlagResult::Unflagged
+            FieldFlagResult::FlagRemoved
         } else {
             if !self.get_field_state().is_opened() {
                 self.state = FieldState::Flagged;
@@ -304,7 +323,11 @@ fn generate_fields(
                 row.push(FieldInner::new_mine());
             } else {
                 let value = get_field_value(width, height, r, c, mine_locations)?;
-                row.push(FieldInner::new_with_value(value))
+                if value == 0 {
+                    row.push(FieldInner::new_empty());
+                } else {
+                    row.push(FieldInner::new_numbered(value).unwrap())
+                }
             }
         }
         fields.push(row);
@@ -327,6 +350,10 @@ impl Table {
 
     fn get_neighbor_fields(&self, row: usize, col: usize) -> HashSet<(usize, usize)> {
         get_neighbor_fields(self.width, self.height, row, col)
+    }
+
+    fn get_field_value(&self, row: usize, col: usize) -> Result<u8, &'static str> {
+        get_field_value(self.width, self.height, row, col, &self.mine_locations)
     }
 
     fn all_fields_are_open(&self) -> bool {
@@ -364,7 +391,7 @@ impl Table {
             }
 
             self.fields[new_place.0][new_place.1].update_type_to_mine();
-            self.fields[row][col].update_type_with_value(0);
+            self.fields[row][col].update_type_to_empty();
             self.mine_locations.remove(&(row, col));
             self.mine_locations.insert(new_place);
             let mut fields_to_recalculate = HashSet::new();
@@ -376,10 +403,10 @@ impl Table {
             fields_to_recalculate.insert((row, col));
             for (r, c) in fields_to_recalculate {
                 if !self.fields[r][c].is_mine() {
-                    self.fields[r][c].update_type_with_value(
-                        get_field_value(self.width, self.height, r, c, &self.mine_locations)
-                            .unwrap(),
-                    );
+                    let field_value = self.get_field_value(r, c).unwrap();
+                    self.fields[r][c]
+                        .update_type_with_value(field_value)
+                        .unwrap();
                 }
             }
         }
@@ -415,11 +442,11 @@ impl Table {
         }
     }
 
-    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<bool, &'static str> {
+    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
         if row >= self.height || col >= self.width {
             Err("Invalid index!")
         } else {
-            Ok(self.fields[row][col].toggle_flag() == FieldFlagResult::Flagged)
+            Ok(self.fields[row][col].toggle_flag())
         }
     }
 }
