@@ -486,6 +486,14 @@ impl Table {
             Ok(self.fields[row][col].get_field_type())
         }
     }
+
+    pub fn get_width(&self) -> usize {
+        self.width
+    }
+
+    pub fn get_height(&self) -> usize {
+        self.height
+    }
 }
 
 #[cfg(test)]
