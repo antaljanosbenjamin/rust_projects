@@ -40,27 +40,27 @@ impl MainWindow {
 
     pub fn show(&self) {
         let mut window = Window::new(Rect::new(100, 100, 420, 768), "Minesweeper");
-        {
-            let inner = self.inner.borrow();
 
-            window.add(&inner.grid);
-            let x = 10;
-            let mut y = 0;
+        let x = 10;
+        let mut y = 0;
 
-            let button = Button::new();
-            button
-                .position(x, y)
-                .size(15, 15)
-                .text("U")
-                .text_offset(6, 6);
-            window.add(&button);
+        let button = Button::new();
+        button
+            .position(x, y)
+            .size(15, 15)
+            .text("U")
+            .text_offset(6, 6);
+        window.add(&button);
 
-            y = y + button.rect.get().height as i32;
+        y = y + button.rect.get().height as i32;
 
-            inner.grid.position(x, y).spacing(1, 1);
+        let inner = self.inner.borrow();
 
-            Self::update_grid(self.inner.clone());
-        }
+        inner.grid.position(x, y).spacing(1, 1);
+
+        window.add(&inner.grid);
+
+        Self::update_grid(self.inner.clone());
 
         window.exec();
     }
