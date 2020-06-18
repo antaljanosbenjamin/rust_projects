@@ -435,9 +435,12 @@ impl Table {
             for (r, c) in fields_to_recalculate {
                 if !self.fields[r][c].field_type.is_mine() {
                     let field_value = self.get_field_value(r, c).unwrap();
-                    self.fields[r][c]
-                        .update_type_with_value(field_value)
-                        .unwrap();
+                    match field_value {
+                        0 => self.fields[r][c].update_type_to_empty(),
+                        _ => self.fields[r][c]
+                            .update_type_with_value(field_value)
+                            .unwrap(),
+                    };
                 }
             }
         }
