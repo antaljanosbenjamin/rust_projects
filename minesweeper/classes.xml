@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mxfile host="app.diagrams.net" modified="2020-06-18T19:14:50.120Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36" etag="-lIBaSPMMdGzQrc7K6jF" version="13.2.6" type="device">
+<mxfile host="app.diagrams.net" modified="2020-06-18T19:15:42.220Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36" etag="RgIhyNpeEEqLK4ZOgBbg" version="13.2.6" type="device">
   <diagram id="-UdBUxEn8HqCxCWbLeRw" name="Page-1">
     <mxGraphModel dx="1422" dy="709" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
@@ -179,7 +179,7 @@
         <mxCell id="-YUQWRut5DLRgyOFD7S8-96" value="next(&amp;mut s) -&gt; Option&lt;(usize, usize)&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#CC0000;" parent="-YUQWRut5DLRgyOFD7S8-87" vertex="1">
           <mxGeometry y="198" width="460" height="26" as="geometry" />
         </mxCell>
-        <mxCell id="-YUQWRut5DLRgyOFD7S8-103" value="&lt;&lt;enumeration&gt;&gt;&#xa;+ FieldFlagResult" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=34;fillColor=#fff2cc;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;strokeColor=#d6b656;" parent="1" vertex="1">
+        <mxCell id="-YUQWRut5DLRgyOFD7S8-103" value="&lt;&lt;enumeration&gt;&gt;&#xa;+ OpenResult" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=34;fillColor=#fff2cc;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;strokeColor=#d6b656;" parent="1" vertex="1">
           <mxGeometry x="402" y="40" width="120" height="112" as="geometry" />
         </mxCell>
         <mxCell id="-YUQWRut5DLRgyOFD7S8-104" value="Ok" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" parent="-YUQWRut5DLRgyOFD7S8-103" vertex="1">
