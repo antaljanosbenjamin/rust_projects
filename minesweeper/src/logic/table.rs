@@ -26,6 +26,23 @@ impl FieldState {
     }
 }
 
+impl FieldType {
+    fn is_empty(&self) -> bool {
+        self == &FieldType::Empty
+    }
+
+    fn is_mine(&self) -> bool {
+        self == &FieldType::Mine
+    }
+
+    fn is_numbered(&self) -> bool {
+        match self {
+            FieldType::Numbered(_) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(PartialEq)]
 pub enum FieldFlagResult {
     Flagged,
@@ -46,9 +63,6 @@ pub trait Field {
     fn get_field_state(&self) -> FieldState;
     fn get_field_type(&self) -> FieldType;
     fn get_char_repr(&self) -> char;
-    fn is_mine(&self) -> bool;
-    fn is_empty(&self) -> bool;
-    fn is_numbered(&self) -> bool;
 }
 
 struct FieldInner {
@@ -163,21 +177,6 @@ impl Field for FieldInner {
                 FieldType::Numbered(x) => std::char::from_digit(x as u32, 10).unwrap(),
                 FieldType::Mine => 'X',
             }
-        }
-    }
-
-    fn is_mine(&self) -> bool {
-        self.field_type == FieldType::Mine
-    }
-
-    fn is_empty(&self) -> bool {
-        self.field_type == FieldType::Empty
-    }
-
-    fn is_numbered(&self) -> bool {
-        match self.field_type {
-            FieldType::Numbered(_) => true,
-            _ => false,
         }
     }
 }
@@ -400,11 +399,11 @@ impl Table {
     }
 
     fn move_mine(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
-        if self.fields[row][col].is_mine() {
+        if self.fields[row][col].field_type.is_mine() {
             let mut new_place = (0, 0);
             let mut visiter = FieldVisiter::new(self.width, self.height, row, col)?;
             while let Some((r, c)) = visiter.next() {
-                if !self.fields[r][c].is_mine() {
+                if !self.fields[r][c].field_type.is_mine() {
                     new_place = (r, c);
                     break;
                 }
@@ -423,7 +422,7 @@ impl Table {
             );
             fields_to_recalculate.insert((row, col));
             for (r, c) in fields_to_recalculate {
-                if !self.fields[r][c].is_mine() {
+                if !self.fields[r][c].field_type.is_mine() {
                     let field_value = self.get_field_value(r, c).unwrap();
                     self.fields[r][c]
                         .update_type_with_value(field_value)
@@ -436,7 +435,7 @@ impl Table {
     }
 
     pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenResult, &'static str> {
-        if self.number_of_opened_fields == 0 && self.fields[row][col].is_mine() {
+        if self.number_of_opened_fields == 0 && self.fields[row][col].field_type.is_mine() {
             self.move_mine(row, col)?;
         }
 
