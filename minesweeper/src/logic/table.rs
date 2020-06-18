@@ -181,14 +181,6 @@ impl Field for FieldInner {
     }
 }
 
-pub struct Table {
-    width: usize,
-    height: usize,
-    mine_locations: HashSet<(usize, usize)>,
-    number_of_opened_fields: usize,
-    fields: Vec<Vec<FieldInner>>,
-}
-
 struct FieldVisiter {
     width: usize,
     height: usize,
@@ -355,6 +347,25 @@ fn generate_fields(
     Ok(fields)
 }
 
+pub struct Table {
+    width: usize,
+    height: usize,
+    mine_locations: HashSet<(usize, usize)>,
+    number_of_opened_fields: usize,
+    fields: Vec<Vec<FieldInner>>,
+}
+
+pub struct FieldTypeInfo {
+    row: usize,
+    column: usize,
+    field_type: FieldType,
+}
+
+pub struct OpenInfo {
+    pub result: OpenResult,
+    pub field_infos: Vec<FieldTypeInfo>,
+}
+
 impl Table {
     pub fn new(width: usize, height: usize, number_of_mines: usize) -> Result<Table, &'static str> {
         let mine_locations = generate_mine_locations(width, height, number_of_mines)?;
@@ -434,12 +445,20 @@ impl Table {
         Ok(())
     }
 
-    pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenResult, &'static str> {
+    fn construct_boom_result(&self) -> OpenInfo {
+        OpenInfo {
+            result: OpenResult::Boom,
+            field_infos: Vec::new(),
+        }
+    }
+
+    pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
         if self.number_of_opened_fields == 0 && self.fields[row][col].field_type.is_mine() {
             self.move_mine(row, col)?;
         }
 
         let mut visiter = FieldVisiter::new(self.width, self.height, row, col)?;
+        let mut field_infos = Vec::new();
 
         while let Some((r, c)) = visiter.next() {
             match self.fields[r][c].open() {
@@ -450,15 +469,27 @@ impl Table {
                 FieldOpenResult::SimpleOpen => {
                     self.number_of_opened_fields = self.number_of_opened_fields + 1;
                 }
-                FieldOpenResult::Boom => return Ok(OpenResult::Boom),
+                FieldOpenResult::Boom => return Ok(self.construct_boom_result()),
                 _ => (),
-            }
+            };
+
+            field_infos.push(FieldTypeInfo {
+                row: r,
+                column: c,
+                field_type: self.fields[r][c].get_field_type(),
+            })
         }
 
         if self.all_fields_are_open() {
-            Ok(OpenResult::WINNER)
+            Ok(OpenInfo {
+                result: OpenResult::WINNER,
+                field_infos,
+            })
         } else {
-            Ok(OpenResult::Ok)
+            Ok(OpenInfo {
+                result: OpenResult::Ok,
+                field_infos,
+            })
         }
     }
 

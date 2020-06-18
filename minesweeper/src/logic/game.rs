@@ -1,4 +1,4 @@
-use crate::logic::table::{OpenResult, Table};
+use crate::logic::table::{OpenInfo, OpenResult, Table};
 use hrsw::Stopwatch;
 
 pub enum GameLevel {
@@ -57,19 +57,23 @@ impl Game {
         Ok(())
     }
 
-    pub fn open(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
+    pub fn open(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
         self.start_game_if_needed();
-        match self.table.open_field(row, col)? {
-            OpenResult::Ok => Ok(()),
+        let open_info = self.table.open_field(row, col)?;
+
+        match open_info.result {
             OpenResult::WINNER => {
                 self.state = GameState::Stopped { win: true };
-                self.stop_game(true)
+                self.stop_game(true);
             }
             OpenResult::Boom => {
                 self.state = GameState::Stopped { win: false };
-                self.stop_game(false)
+                self.stop_game(false);
             }
-        }
+            _ => (),
+        };
+
+        Ok(open_info)
     }
 
     pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
