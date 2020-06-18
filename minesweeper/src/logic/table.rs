@@ -469,30 +469,6 @@ impl Table {
             Ok(self.fields[row][col].toggle_flag())
         }
     }
-
-    pub fn get_field_state(&self, row: usize, col: usize) -> Result<FieldState, &'static str> {
-        if row >= self.height || col >= self.width {
-            Err("Invalid index!")
-        } else {
-            Ok(self.fields[row][col].get_field_state())
-        }
-    }
-
-    pub fn get_field_type(&self, row: usize, col: usize) -> Result<FieldType, &'static str> {
-        if row >= self.height || col >= self.width {
-            Err("Invalid index!")
-        } else {
-            Ok(self.fields[row][col].get_field_type())
-        }
-    }
-
-    pub fn get_width(&self) -> usize {
-        self.width
-    }
-
-    pub fn get_height(&self) -> usize {
-        self.height
-    }
 }
 
 #[cfg(test)]

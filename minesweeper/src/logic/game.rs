@@ -1,4 +1,4 @@
-use crate::logic::table::{FieldState, FieldType, OpenResult, Table};
+use crate::logic::table::{OpenResult, Table};
 use hrsw::Stopwatch;
 
 pub enum GameLevel {
@@ -76,21 +76,5 @@ impl Game {
         self.start_game_if_needed();
         self.table.toggle_flag(row, col)?;
         Ok(())
-    }
-
-    pub fn get_field_state(&self, row: usize, col: usize) -> Result<FieldState, &'static str> {
-        self.table.get_field_state(row, col)
-    }
-
-    pub fn get_field_type(&self, row: usize, col: usize) -> Result<FieldType, &'static str> {
-        self.table.get_field_type(row, col)
-    }
-
-    pub fn get_width(&self) -> usize {
-        self.table.get_width()
-    }
-
-    pub fn get_height(&self) -> usize {
-        self.table.get_height()
     }
 }
