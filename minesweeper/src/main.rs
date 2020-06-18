@@ -1,9 +1,10 @@
-mod gui;
 mod logic;
-
-use gui::main_window::MainWindow;
+use logic::game::{Game, GameLevel};
 
 fn main() {
-    let mw = MainWindow::new();
-    mw.show();
+    let mut g = Game::new(GameLevel::Expert);
+    g.open(1, 1).unwrap();
+    g.open(9, 9).unwrap();
+    //g.table.print();
+    //d.print();
 }
