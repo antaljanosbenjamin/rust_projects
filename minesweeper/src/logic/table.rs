@@ -375,8 +375,11 @@ pub struct OpenInfo {
 }
 
 impl Table {
-    pub fn new(width: usize, height: usize, number_of_mines: usize) -> Result<Table, &'static str> {
-        let mine_locations = generate_mine_locations(width, height, number_of_mines)?;
+    pub fn with_custom_mines(
+        width: usize,
+        height: usize,
+        mine_locations: HashSet<(usize, usize)>,
+    ) -> Result<Table, &'static str> {
         let fields = generate_fields(width, height, &mine_locations)?;
         Ok(Table {
             width,
@@ -385,6 +388,11 @@ impl Table {
             number_of_opened_fields: 0,
             fields,
         })
+    }
+
+    pub fn new(width: usize, height: usize, number_of_mines: usize) -> Result<Table, &'static str> {
+        let mine_locations = generate_mine_locations(width, height, number_of_mines)?;
+        Table::with_custom_mines(width, height, mine_locations)
     }
 
     fn get_neighbor_fields(&self, row: usize, col: usize) -> HashSet<(usize, usize)> {
