@@ -465,10 +465,20 @@ impl Table {
     }
 
     fn construct_boom_result(&self) -> OpenInfo {
-        OpenInfo {
+        let mut boom_result = OpenInfo {
             result: OpenResult::Boom,
             field_infos: Vec::new(),
+        };
+        for row in 0..self.height {
+            for column in 0..self.width {
+                boom_result.field_infos.push(FieldTypeInfo {
+                    row,
+                    column,
+                    field_type: self.fields[row][column].get_field_type(),
+                })
+            }
         }
+        boom_result
     }
 
     pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
