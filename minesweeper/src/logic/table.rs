@@ -1,6 +1,8 @@
 use indexmap::IndexSet;
 use std::char;
 use std::collections::HashSet;
+use std::fmt;
+use strum_macros::Display;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum FieldState {
@@ -9,7 +11,7 @@ pub enum FieldState {
     Flagged,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Display)]
 pub enum FieldType {
     Empty,
     Numbered(u8),
@@ -359,6 +361,12 @@ pub struct FieldTypeInfo {
     row: usize,
     column: usize,
     field_type: FieldType,
+}
+
+impl fmt::Display for FieldTypeInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {}) is {}", self.row, self.column, self.field_type)
+    }
 }
 
 pub struct OpenInfo {
