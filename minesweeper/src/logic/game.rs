@@ -51,10 +51,9 @@ impl Game {
         self.state = GameState::Started;
     }
 
-    fn stop_game(&mut self, win: bool) -> Result<(), &'static str> {
+    fn stop_game(&mut self, win: bool) {
         self.stopwatch.stop();
         self.state = GameState::Stopped { win };
-        Ok(())
     }
 
     pub fn open(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
