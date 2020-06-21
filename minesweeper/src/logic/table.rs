@@ -45,6 +45,14 @@ impl FieldType {
             _ => false,
         }
     }
+
+    pub fn get_char_repr(&self) -> char {
+        match self {
+            FieldType::Empty => ' ',
+            FieldType::Numbered(x) => std::char::from_digit(*x as u32, 10).unwrap(),
+            FieldType::Mine => 'X',
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -176,11 +184,7 @@ impl Field for FieldInner {
         } else if !self.state.is_opened() {
             'O'
         } else {
-            match self.field_type {
-                FieldType::Empty => ' ',
-                FieldType::Numbered(x) => std::char::from_digit(x as u32, 10).unwrap(),
-                FieldType::Mine => 'X',
-            }
+            self.field_type.get_char_repr()
         }
     }
 }
