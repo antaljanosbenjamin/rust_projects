@@ -16,6 +16,8 @@ pub enum GameState {
 }
 
 pub struct Game {
+    width: usize,
+    height: usize,
     table: Table,
     stopwatch: Stopwatch,
     state: GameState,
@@ -37,6 +39,8 @@ impl Game {
     ) -> Result<Game, &'static str> {
         let table = Table::new(width, height, number_of_mines)?;
         Ok(Game {
+            width,
+            height,
             table,
             stopwatch: Stopwatch::new(),
             state: GameState::NotStarted,
@@ -80,5 +84,13 @@ impl Game {
     pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
         self.start_game_if_needed();
         self.table.toggle_flag(row, col)
+    }
+
+    pub fn get_width(&self) -> usize {
+        self.width
+    }
+
+    pub fn get_height(&self) -> usize {
+        self.height
     }
 }

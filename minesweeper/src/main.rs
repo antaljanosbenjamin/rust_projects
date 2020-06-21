@@ -75,7 +75,7 @@ impl Display for DisplayFieldInfos {
 fn main() {
     let mut g = Game::new(GameLevel::Beginner);
     let mut last_result = OpenResult::Ok;
-    let mut fields = create_empty_field(10, 10);
+    let mut fields = create_empty_field(g.get_width(), g.get_height());
     while last_result != OpenResult::WINNER && last_result != OpenResult::Boom {
         print_fields(&fields);
 
