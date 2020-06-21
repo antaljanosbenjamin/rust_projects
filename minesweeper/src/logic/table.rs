@@ -509,6 +509,12 @@ impl Table {
         }
 
         if self.all_fields_are_open() {
+            for mine_coords in self.mine_locations.iter() {
+                field_infos.insert(
+                    (mine_coords.0, mine_coords.1),
+                    self.fields[mine_coords.0][mine_coords.1].get_field_type(),
+                );
+            }
             Ok(OpenInfo {
                 result: OpenResult::WINNER,
                 field_infos,
