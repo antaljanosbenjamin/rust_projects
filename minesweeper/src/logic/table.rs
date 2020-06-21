@@ -511,7 +511,7 @@ impl Table {
                     self.number_of_opened_fields = self.number_of_opened_fields + 1;
                 }
                 FieldOpenResult::Boom => return Ok(self.construct_boom_result()),
-                _ => (),
+                _ => continue,
             };
 
             field_infos.push(FieldTypeInfo {
