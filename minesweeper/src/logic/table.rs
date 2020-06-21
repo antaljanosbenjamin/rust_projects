@@ -48,7 +48,7 @@ impl FieldType {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum FieldFlagResult {
     Flagged,
     FlagRemoved,
@@ -235,7 +235,7 @@ impl FieldVisiter {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum OpenResult {
     Ok,
     IsFlagged,
@@ -623,14 +623,14 @@ mod test {
         let mut visiter = FieldVisiter::new(table.width, table.height, 5, 5).unwrap();
         let mut expected_fields_to_visit = IndexSet::new();
         expected_fields_to_visit.insert((5, 5));
-        assert!(visiter.fields_to_visit == expected_fields_to_visit);
+        assert_eq!(expected_fields_to_visit, visiter.fields_to_visit);
         visiter.extend_with_unvisited_neighbors(5, 5);
         for i in 4..7 {
             for j in 4..7 {
                 expected_fields_to_visit.insert((i, j));
             }
         }
-        assert!(visiter.fields_to_visit == expected_fields_to_visit);
+        assert_eq!(expected_fields_to_visit, visiter.fields_to_visit);
 
         let mut item = visiter.next().unwrap();
         expected_fields_to_visit.remove(&item);
@@ -638,14 +638,14 @@ mod test {
         expected_fields_to_visit.remove(&item);
         item = visiter.next().unwrap();
         expected_fields_to_visit.remove(&item);
-        assert!(visiter.fields_to_visit == expected_fields_to_visit);
+        assert_eq!(expected_fields_to_visit, visiter.fields_to_visit);
         visiter.extend_with_unvisited_neighbors(5, 5);
-        assert!(visiter.fields_to_visit == expected_fields_to_visit);
+        assert_eq!(expected_fields_to_visit, visiter.fields_to_visit);
         while let Some(item) = visiter.next() {
             expected_fields_to_visit.remove(&item);
             visiter.extend_with_unvisited_neighbors(5, 5);
         }
-        assert!(visiter.fields_to_visit == expected_fields_to_visit);
+        assert_eq!(expected_fields_to_visit, visiter.fields_to_visit);
     }
 
     #[test]
@@ -656,14 +656,14 @@ mod test {
             for col in 0..test_info.width {
                 let open_result = table.open_field(row, col).unwrap();
                 let is_mine = test_info.mine_locations.contains(&(row, col));
-                assert!(is_mine == (open_result.result == OpenResult::Boom));
+                assert_eq!(is_mine, (open_result.result == OpenResult::Boom));
             }
         }
         // Everything is opened, so no Boom and no Ok
         for row in 0..test_info.height {
             for col in 0..test_info.width {
                 let open_result = table.open_field(row, col).unwrap();
-                assert!(open_result.result == OpenResult::WINNER);
+                assert_eq!(OpenResult::WINNER, open_result.result);
             }
         }
     }
@@ -676,7 +676,7 @@ mod test {
             for col in 0..test_info.width {
                 if !test_info.mine_locations.contains(&(row, col)) && !(row == 4 && col == 4) {
                     let open_result = table.open_field(row, col).unwrap();
-                    assert!(open_result.result == OpenResult::Ok);
+                    assert_eq!(OpenResult::Ok, open_result.result);
                 }
             }
         }
@@ -690,20 +690,20 @@ mod test {
 
         let mut iter = test_info.mine_locations.iter();
         let first_mine_location = iter.next().unwrap();
-        assert!(
+        assert_eq!(
+            OpenResult::Ok,
             table
                 .open_field(first_mine_location.0, first_mine_location.1)
                 .unwrap()
                 .result
-                == OpenResult::Ok
         );
         let second_mine_location = iter.next().unwrap();
-        assert!(
+        assert_eq!(
+            OpenResult::Boom,
             table
                 .open_field(second_mine_location.0, second_mine_location.1)
                 .unwrap()
                 .result
-                == OpenResult::Boom
         );
     }
 
@@ -711,14 +711,14 @@ mod test {
     fn open_mine_second() {
         let test_info = create_test_info_5x5();
         let mut table = test_info.table.borrow_mut();
-        assert!(table.open_field(3, 2).unwrap().result == OpenResult::Ok);
+        assert_eq!(OpenResult::Ok, table.open_field(3, 2).unwrap().result);
         let first_mine_location = test_info.mine_locations.iter().next().unwrap();
-        assert!(
+        assert_eq!(
+            OpenResult::Boom,
             table
                 .open_field(first_mine_location.0, first_mine_location.1)
                 .unwrap()
                 .result
-                == OpenResult::Boom
         );
     }
 
@@ -727,8 +727,8 @@ mod test {
         let test_info = create_test_info_5x5();
         let mut table = test_info.table.borrow_mut();
         let open_result = table.open_field(1, 0).unwrap();
-        assert!(open_result.result == OpenResult::Ok);
-        assert!(open_result.field_infos.len() == 8);
+        assert_eq!(OpenResult::Ok, open_result.result);
+        assert_eq!(8, open_result.field_infos.len());
         for row in 0..3 {
             for col in 0..3 {
                 if row == 2 && col == 2 {
@@ -748,9 +748,9 @@ mod test {
         let test_info = create_test_info_5x5();
         let mut table = test_info.table.borrow_mut();
         let flag_result = table.toggle_flag(0, 1).unwrap();
-        assert!(flag_result == FieldFlagResult::Flagged);
+        assert_eq!(FieldFlagResult::Flagged, flag_result);
         let unflag_result = table.toggle_flag(0, 1).unwrap();
-        assert!(unflag_result == FieldFlagResult::FlagRemoved);
+        assert_eq!(FieldFlagResult::FlagRemoved, unflag_result);
     }
 
     #[test]
@@ -758,10 +758,10 @@ mod test {
         let test_info = create_test_info_5x5();
         let mut table = test_info.table.borrow_mut();
         let toggle_result = table.toggle_flag(1, 1).unwrap();
-        assert!(toggle_result == FieldFlagResult::Flagged);
+        assert_eq!(FieldFlagResult::Flagged, toggle_result);
         let open_result = table.open_field(1, 1).unwrap();
-        assert!(open_result.result == OpenResult::IsFlagged);
-        assert!(open_result.field_infos.len() == 0);
+        assert_eq!(OpenResult::IsFlagged, open_result.result);
+        assert_eq!(0, open_result.field_infos.len());
     }
 
     #[test]
@@ -769,11 +769,11 @@ mod test {
         let test_info = create_test_info_5x5();
         let mut table = test_info.table.borrow_mut();
         let toggle_result = table.toggle_flag(0, 1).unwrap();
-        assert!(toggle_result == FieldFlagResult::Flagged);
+        assert_eq!(FieldFlagResult::Flagged, toggle_result);
         let open_result = table.open_field(1, 0).unwrap();
-        assert!(open_result.result == OpenResult::Ok);
+        assert_eq!(OpenResult::Ok, open_result.result);
         let field_infos = open_result.field_infos;
-        assert!(field_infos.len() == 5);
+        assert_eq!(5, field_infos.len());
         assert!(field_infos.contains(&FieldTypeInfo {
             row: 0,
             column: 0,
