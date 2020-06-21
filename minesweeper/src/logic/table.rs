@@ -29,14 +29,17 @@ impl FieldState {
 }
 
 impl FieldType {
+    #[allow(dead_code)]
     fn is_empty(&self) -> bool {
         self == &FieldType::Empty
     }
 
+    #[allow(dead_code)]
     fn is_mine(&self) -> bool {
         self == &FieldType::Mine
     }
 
+    #[allow(dead_code)]
     fn is_numbered(&self) -> bool {
         match self {
             FieldType::Numbered(_) => true,
@@ -407,6 +410,7 @@ impl Table {
         self.width * self.height == self.mine_locations.len() + self.number_of_opened_fields
     }
 
+    #[allow(dead_code)]
     pub fn print(&self) {
         for row in self.fields.iter() {
             for cell in row.iter() {
@@ -522,6 +526,7 @@ impl Table {
         }
     }
 
+    #[allow(dead_code)]
     pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
         if row >= self.height || col >= self.width {
             Err("Invalid index!")
