@@ -237,6 +237,7 @@ impl FieldVisiter {
 
 pub enum OpenResult {
     Ok,
+    IsFlagged,
     Boom,
     WINNER,
 }
@@ -486,6 +487,13 @@ impl Table {
     }
 
     pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+        if self.fields[row][col].get_field_state().is_flagged() {
+            return Ok(OpenInfo {
+                result: OpenResult::IsFlagged,
+                field_infos: Vec::new(),
+            });
+        }
+
         if self.number_of_opened_fields == 0 && self.fields[row][col].field_type.is_mine() {
             self.move_mine(row, col)?;
         }
