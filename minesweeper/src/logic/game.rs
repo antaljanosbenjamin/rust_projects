@@ -1,4 +1,4 @@
-use crate::logic::table::{OpenInfo, OpenResult, Table};
+use crate::logic::table::{FieldFlagResult, OpenInfo, OpenResult, Table};
 use hrsw::Stopwatch;
 
 #[allow(dead_code)]
@@ -77,8 +77,8 @@ impl Game {
     }
 
     #[allow(dead_code)]
+    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
         self.start_game_if_needed();
-        self.table.toggle_flag(row, col)?;
-        Ok(())
+        self.table.toggle_flag(row, col)
     }
 }
