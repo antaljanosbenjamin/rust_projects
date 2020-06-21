@@ -774,7 +774,8 @@ mod test {
                     open_result.field_infos.get(&(row, column))
                 );
             }
-            }
         }
     }
+
+    // TODO Write test to full game
 }
