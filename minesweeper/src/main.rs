@@ -80,6 +80,7 @@ fn main() {
         print_fields(&fields);
 
         let read_input = || -> Result<(Action, usize, usize), &'static str> {
+            println!("Please type your next move (<o|f> <row> <column>): ");
             let mut input = String::new();
             io::stdin()
                 .read_line(&mut input)
