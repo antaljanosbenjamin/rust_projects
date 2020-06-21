@@ -238,7 +238,7 @@ impl FieldVisiter {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Display)]
 pub enum OpenResult {
     Ok,
     IsFlagged,
