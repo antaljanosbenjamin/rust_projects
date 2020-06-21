@@ -1,4 +1,5 @@
-use crate::logic::table::{FieldFlagResult, OpenInfo, OpenResult, Table};
+use super::results::{FieldFlagResult, OpenInfo, OpenResult};
+use super::table::Table;
 use hrsw::Stopwatch;
 
 #[allow(dead_code)]

@@ -3,9 +3,10 @@ use std::fmt::{Display, Error, Formatter};
 use std::io;
 use std::vec::Vec;
 
-mod logic;
-use logic::game::{Game, GameLevel};
-use logic::table::{FieldFlagResult, FieldType, OpenResult};
+mod minesweeper;
+use minesweeper::field_type::FieldType;
+use minesweeper::game::{Game, GameLevel};
+use minesweeper::results::{FieldFlagResult, OpenResult};
 
 fn create_empty_field(width: usize, height: usize) -> Vec<Vec<char>> {
     let mut fields = Vec::new();

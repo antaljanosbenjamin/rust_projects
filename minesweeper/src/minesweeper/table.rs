@@ -1,20 +1,13 @@
+use super::field_type::FieldType;
+use super::results::{FieldFlagResult, OpenInfo, OpenResult};
 use indexmap::IndexSet;
-use std::char;
 use std::collections::{HashMap, HashSet};
-use strum_macros::Display;
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum FieldState {
+enum FieldState {
     Closed,
     Opened,
     Flagged,
-}
-
-#[derive(Clone, Copy, PartialEq, Display)]
-pub enum FieldType {
-    Empty,
-    Numbered(u8),
-    Mine,
 }
 
 impl FieldState {
@@ -27,39 +20,10 @@ impl FieldState {
     }
 }
 
-impl FieldType {
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        self == &FieldType::Empty
-    }
-
-    #[allow(dead_code)]
-    pub fn is_mine(&self) -> bool {
-        self == &FieldType::Mine
-    }
-
-    #[allow(dead_code)]
-    pub fn is_numbered(&self) -> bool {
-        match self {
-            FieldType::Numbered(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn get_char_repr(&self) -> char {
-        match self {
-            FieldType::Empty => ' ',
-            FieldType::Numbered(x) => std::char::from_digit(*x as u32, 10).unwrap(),
-            FieldType::Mine => 'X',
-        }
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub enum FieldFlagResult {
-    Flagged,
-    FlagRemoved,
-    AlreadyOpened,
+trait Field {
+    fn get_field_state(&self) -> FieldState;
+    fn get_field_type(&self) -> FieldType;
+    fn get_char_repr(&self) -> char;
 }
 
 #[derive(PartialEq)]
@@ -69,12 +33,6 @@ enum FieldOpenResult {
     MultiOpen,
     Boom,
     IsFlagged,
-}
-
-pub trait Field {
-    fn get_field_state(&self) -> FieldState;
-    fn get_field_type(&self) -> FieldType;
-    fn get_char_repr(&self) -> char;
 }
 
 struct FieldInner {
@@ -238,14 +196,6 @@ impl FieldVisiter {
     }
 }
 
-#[derive(PartialEq, Debug, Display)]
-pub enum OpenResult {
-    Ok,
-    IsFlagged,
-    Boom,
-    WINNER,
-}
-
 const NEIGHBOR_OFFSETS: [(i8, i8); 8] = [
     (-1, -1),
     (0, -1),
@@ -365,14 +315,8 @@ pub struct Table {
     fields: Vec<Vec<FieldInner>>,
 }
 
-#[derive(PartialEq)]
-pub struct OpenInfo {
-    pub result: OpenResult,
-    pub field_infos: HashMap<(usize, usize), FieldType>,
-}
-
 impl Table {
-    pub fn with_custom_mines(
+    fn with_custom_mines(
         width: usize,
         height: usize,
         mine_locations: HashSet<(usize, usize)>,
