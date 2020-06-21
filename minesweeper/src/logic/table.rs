@@ -235,6 +235,7 @@ impl FieldVisiter {
     }
 }
 
+#[derive(PartialEq)]
 pub enum OpenResult {
     Ok,
     IsFlagged,
@@ -361,6 +362,7 @@ pub struct Table {
     fields: Vec<Vec<FieldInner>>,
 }
 
+#[derive(PartialEq)]
 pub struct FieldTypeInfo {
     row: usize,
     column: usize,
@@ -547,6 +549,73 @@ impl Table {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::cell::RefCell;
+
+    struct TestInfo {
+        width: usize,
+        height: usize,
+        table: RefCell<Table>,
+        mine_locations: HashSet<(usize, usize)>,
+        fields: Vec<Vec<FieldType>>,
+    }
+
+    // O O 1 M 1
+    // O 1 2 2 1
+    // 1 2 M 2 1
+    // M 3 3 M 1
+    // 2 M 2 1 1
+    fn create_test_info_5x5() -> TestInfo {
+        let mut mine_locations = HashSet::new();
+        mine_locations.insert((0, 3));
+        mine_locations.insert((3, 0));
+        mine_locations.insert((3, 3));
+        mine_locations.insert((2, 2));
+        mine_locations.insert((4, 1));
+        let fields = vec![
+            vec![
+                FieldType::Empty,
+                FieldType::Empty,
+                FieldType::Numbered(1),
+                FieldType::Mine,
+                FieldType::Numbered(1),
+            ],
+            vec![
+                FieldType::Empty,
+                FieldType::Numbered(1),
+                FieldType::Numbered(2),
+                FieldType::Numbered(2),
+                FieldType::Numbered(1),
+            ],
+            vec![
+                FieldType::Numbered(1),
+                FieldType::Numbered(2),
+                FieldType::Mine,
+                FieldType::Numbered(2),
+                FieldType::Numbered(1),
+            ],
+            vec![
+                FieldType::Mine,
+                FieldType::Numbered(3),
+                FieldType::Numbered(3),
+                FieldType::Mine,
+                FieldType::Numbered(1),
+            ],
+            vec![
+                FieldType::Numbered(2),
+                FieldType::Mine,
+                FieldType::Numbered(2),
+                FieldType::Numbered(1),
+                FieldType::Numbered(1),
+            ],
+        ];
+        TestInfo {
+            width: 5,
+            height: 5,
+            table: RefCell::new(Table::with_custom_mines(5, 5, mine_locations.clone()).unwrap()),
+            mine_locations,
+            fields,
+        }
+    }
 
     #[test]
     fn field_visiter() {
@@ -577,5 +646,148 @@ mod test {
             visiter.extend_with_unvisited_neighbors(5, 5);
         }
         assert!(visiter.fields_to_visit == expected_fields_to_visit);
+    }
+
+    #[test]
+    fn open_everything() {
+        let test_info = create_test_info_5x5();
+        let mut table = test_info.table.borrow_mut();
+        for row in 0..test_info.height {
+            for col in 0..test_info.width {
+                let open_result = table.open_field(row, col).unwrap();
+                let is_mine = test_info.mine_locations.contains(&(row, col));
+                assert!(is_mine == (open_result.result == OpenResult::Boom));
+            }
+        }
+        // Everything is opened, so no Boom and no Ok
+        for row in 0..test_info.height {
+            for col in 0..test_info.width {
+                let open_result = table.open_field(row, col).unwrap();
+                assert!(open_result.result == OpenResult::WINNER);
+            }
+        }
+    }
+
+    #[test]
+    fn win() {
+        let test_info = create_test_info_5x5();
+        let mut table = test_info.table.borrow_mut();
+        for row in 0..test_info.height {
+            for col in 0..test_info.width {
+                if !test_info.mine_locations.contains(&(row, col)) && !(row == 4 && col == 4) {
+                    let open_result = table.open_field(row, col).unwrap();
+                    assert!(open_result.result == OpenResult::Ok);
+                }
+            }
+        }
+        assert!(table.open_field(4, 4).unwrap().result == OpenResult::WINNER);
+    }
+
+    #[test]
+    fn open_mine_first() {
+        let test_info = create_test_info_5x5();
+        let mut table = test_info.table.borrow_mut();
+
+        let mut iter = test_info.mine_locations.iter();
+        let first_mine_location = iter.next().unwrap();
+        assert!(
+            table
+                .open_field(first_mine_location.0, first_mine_location.1)
+                .unwrap()
+                .result
+                == OpenResult::Ok
+        );
+        let second_mine_location = iter.next().unwrap();
+        assert!(
+            table
+                .open_field(second_mine_location.0, second_mine_location.1)
+                .unwrap()
+                .result
+                == OpenResult::Boom
+        );
+    }
+
+    #[test]
+    fn open_mine_second() {
+        let test_info = create_test_info_5x5();
+        let mut table = test_info.table.borrow_mut();
+        assert!(table.open_field(3, 2).unwrap().result == OpenResult::Ok);
+        let first_mine_location = test_info.mine_locations.iter().next().unwrap();
+        assert!(
+            table
+                .open_field(first_mine_location.0, first_mine_location.1)
+                .unwrap()
+                .result
+                == OpenResult::Boom
+        );
+    }
+
+    #[test]
+    fn open_bubble() {
+        let test_info = create_test_info_5x5();
+        let mut table = test_info.table.borrow_mut();
+        let open_result = table.open_field(1, 0).unwrap();
+        assert!(open_result.result == OpenResult::Ok);
+        assert!(open_result.field_infos.len() == 8);
+        for row in 0..3 {
+            for col in 0..3 {
+                if row == 2 && col == 2 {
+                    continue;
+                }
+                assert!(open_result.field_infos.contains(&FieldTypeInfo {
+                    row,
+                    column: col,
+                    field_type: test_info.fields[row][col],
+                }));
+            }
+        }
+    }
+
+    #[test]
+    fn flag_and_unflag() {
+        let test_info = create_test_info_5x5();
+        let mut table = test_info.table.borrow_mut();
+        let flag_result = table.toggle_flag(0, 1).unwrap();
+        assert!(flag_result == FieldFlagResult::Flagged);
+        let unflag_result = table.toggle_flag(0, 1).unwrap();
+        assert!(unflag_result == FieldFlagResult::FlagRemoved);
+    }
+
+    #[test]
+    fn open_flagged() {
+        let test_info = create_test_info_5x5();
+        let mut table = test_info.table.borrow_mut();
+        let toggle_result = table.toggle_flag(1, 1).unwrap();
+        assert!(toggle_result == FieldFlagResult::Flagged);
+        let open_result = table.open_field(1, 1).unwrap();
+        assert!(open_result.result == OpenResult::IsFlagged);
+        assert!(open_result.field_infos.len() == 0);
+    }
+
+    #[test]
+    fn flagged_bubble_is_not_opened() {
+        let test_info = create_test_info_5x5();
+        let mut table = test_info.table.borrow_mut();
+        let toggle_result = table.toggle_flag(0, 1).unwrap();
+        assert!(toggle_result == FieldFlagResult::Flagged);
+        let open_result = table.open_field(1, 0).unwrap();
+        assert!(open_result.result == OpenResult::Ok);
+        let field_infos = open_result.field_infos;
+        assert!(field_infos.len() == 5);
+        assert!(field_infos.contains(&FieldTypeInfo {
+            row: 0,
+            column: 0,
+            field_type: FieldType::Empty
+        }));
+
+        for row in 1..3 {
+            for column in 0..2 {
+                assert!(field_infos.contains(&FieldTypeInfo {
+                    row,
+                    column,
+                    field_type: test_info.fields[row][column]
+                }));
+            }
+        }
     }
 }
