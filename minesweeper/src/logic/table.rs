@@ -1,7 +1,6 @@
 use indexmap::IndexSet;
 use std::char;
-use std::collections::HashSet;
-use std::fmt;
+use std::collections::{HashMap, HashSet};
 use strum_macros::Display;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -30,17 +29,17 @@ impl FieldState {
 
 impl FieldType {
     #[allow(dead_code)]
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self == &FieldType::Empty
     }
 
     #[allow(dead_code)]
-    fn is_mine(&self) -> bool {
+    pub fn is_mine(&self) -> bool {
         self == &FieldType::Mine
     }
 
     #[allow(dead_code)]
-    fn is_numbered(&self) -> bool {
+    pub fn is_numbered(&self) -> bool {
         match self {
             FieldType::Numbered(_) => true,
             _ => false,
@@ -363,21 +362,9 @@ pub struct Table {
 }
 
 #[derive(PartialEq)]
-pub struct FieldTypeInfo {
-    row: usize,
-    column: usize,
-    field_type: FieldType,
-}
-
-impl fmt::Display for FieldTypeInfo {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}, {}) is {}", self.row, self.column, self.field_type)
-    }
-}
-
 pub struct OpenInfo {
     pub result: OpenResult,
-    pub field_infos: Vec<FieldTypeInfo>,
+    pub field_infos: HashMap<(usize, usize), FieldType>,
 }
 
 impl Table {
@@ -474,15 +461,13 @@ impl Table {
     fn construct_boom_result(&self) -> OpenInfo {
         let mut boom_result = OpenInfo {
             result: OpenResult::Boom,
-            field_infos: Vec::new(),
+            field_infos: HashMap::new(),
         };
         for row in 0..self.height {
             for column in 0..self.width {
-                boom_result.field_infos.push(FieldTypeInfo {
-                    row,
-                    column,
-                    field_type: self.fields[row][column].get_field_type(),
-                })
+                boom_result
+                    .field_infos
+                    .insert((row, column), self.fields[row][column].get_field_type());
             }
         }
         boom_result
@@ -492,7 +477,7 @@ impl Table {
         if self.fields[row][col].get_field_state().is_flagged() {
             return Ok(OpenInfo {
                 result: OpenResult::IsFlagged,
-                field_infos: Vec::new(),
+                field_infos: HashMap::new(),
             });
         }
 
@@ -501,7 +486,7 @@ impl Table {
         }
 
         let mut visiter = FieldVisiter::new(self.width, self.height, row, col)?;
-        let mut field_infos = Vec::new();
+        let mut field_infos = HashMap::new();
 
         while let Some((r, c)) = visiter.next() {
             match self.fields[r][c].open() {
@@ -516,11 +501,7 @@ impl Table {
                 _ => continue,
             };
 
-            field_infos.push(FieldTypeInfo {
-                row: r,
-                column: c,
-                field_type: self.fields[r][c].get_field_type(),
-            })
+            field_infos.insert((r, c), self.fields[r][c].get_field_type());
         }
 
         if self.all_fields_are_open() {
@@ -734,11 +715,10 @@ mod test {
                 if row == 2 && col == 2 {
                     continue;
                 }
-                assert!(open_result.field_infos.contains(&FieldTypeInfo {
-                    row,
-                    column: col,
-                    field_type: test_info.fields[row][col],
-                }));
+                assert_eq!(
+                    test_info.fields[row][col],
+                    open_result.field_infos.get(&(row, col),)
+                );
             }
         }
     }
@@ -774,19 +754,16 @@ mod test {
         assert_eq!(OpenResult::Ok, open_result.result);
         let field_infos = open_result.field_infos;
         assert_eq!(5, field_infos.len());
-        assert!(field_infos.contains(&FieldTypeInfo {
-            row: 0,
-            column: 0,
-            field_type: FieldType::Empty
-        }));
+
+        assert_eq!(FieldType::Empty, open_result.field_infos.get(&(0, 0)));
 
         for row in 1..3 {
             for column in 0..2 {
-                assert!(field_infos.contains(&FieldTypeInfo {
-                    row,
-                    column,
-                    field_type: test_info.fields[row][column]
-                }));
+                assert_eq!(
+                    test_info.fields[row][column],
+                    open_result.field_infos.get(&(row, column))
+                );
+            }
             }
         }
     }
