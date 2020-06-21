@@ -1,6 +1,7 @@
 use crate::logic::table::{OpenInfo, OpenResult, Table};
 use hrsw::Stopwatch;
 
+#[allow(dead_code)]
 pub enum GameLevel {
     Beginner,
     Intermediate,
@@ -75,7 +76,7 @@ impl Game {
         Ok(open_info)
     }
 
-    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
+    #[allow(dead_code)]
         self.start_game_if_needed();
         self.table.toggle_flag(row, col)?;
         Ok(())
