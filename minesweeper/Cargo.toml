@@ -12,3 +12,10 @@ indexmap = "1.0.2"
 hrsw = "0.1.0"
 strum = "0.18.0"
 strum_macros = "0.18.0"
+
+[lib]
+name = "minesweeper"
+
+[[bin]]
+name = "minesweeper_demo"
+path = "src/main.rs"

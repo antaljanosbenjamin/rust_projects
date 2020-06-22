@@ -1,12 +1,11 @@
+use minesweeper::FieldType;
+use minesweeper::{FieldFlagResult, OpenResult};
+use minesweeper::{Game, GameLevel};
+
 use std::collections::HashMap;
 use std::fmt::{Display, Error, Formatter};
 use std::io;
 use std::vec::Vec;
-
-mod minesweeper;
-use minesweeper::field_type::FieldType;
-use minesweeper::game::{Game, GameLevel};
-use minesweeper::results::{FieldFlagResult, OpenResult};
 
 fn create_empty_field(width: usize, height: usize) -> Vec<Vec<char>> {
     let mut fields = Vec::new();
