@@ -1,5 +1,6 @@
 use strum_macros::Display;
 
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Display, Debug)]
 pub enum FieldType {
     Empty,

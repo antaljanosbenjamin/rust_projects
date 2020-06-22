@@ -2,6 +2,7 @@ use super::results::{FieldFlagResult, OpenInfo, OpenResult};
 use super::table::Table;
 use hrsw::Stopwatch;
 
+#[repr(C)]
 #[allow(dead_code)]
 pub enum GameLevel {
     Beginner,

@@ -2,7 +2,7 @@ use super::field_type::FieldType;
 use std::collections::HashMap;
 use strum_macros::Display;
 
-#[repr(i32)]
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Display, Debug)]
 pub enum FieldFlagResult {
     Flagged,
@@ -10,7 +10,7 @@ pub enum FieldFlagResult {
     AlreadyOpened,
 }
 
-#[repr(i32)]
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Display, Debug)]
 pub enum OpenResult {
     Ok,
