@@ -670,8 +670,8 @@ mod test {
                     continue;
                 }
                 assert_eq!(
-                    test_info.fields[row][col],
-                    open_result.field_infos.get(&(row, col),)
+                    Some(&test_info.fields[row][col]),
+                    open_result.field_infos.get(&(row, col))
                 );
             }
         }
@@ -706,16 +706,16 @@ mod test {
         assert_eq!(FieldFlagResult::Flagged, toggle_result);
         let open_result = table.open_field(1, 0).unwrap();
         assert_eq!(OpenResult::Ok, open_result.result);
-        let field_infos = open_result.field_infos;
+        let field_infos = &open_result.field_infos;
         assert_eq!(5, field_infos.len());
 
-        assert_eq!(FieldType::Empty, open_result.field_infos.get(&(0, 0)));
+        assert_eq!(Some(&FieldType::Empty), field_infos.get(&(0, 0)));
 
         for row in 1..3 {
             for column in 0..2 {
                 assert_eq!(
-                    test_info.fields[row][column],
-                    open_result.field_infos.get(&(row, column))
+                    Some(&test_info.fields[row][column]),
+                    field_infos.get(&(row, column))
                 );
             }
         }
