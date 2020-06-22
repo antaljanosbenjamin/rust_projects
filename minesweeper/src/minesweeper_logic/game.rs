@@ -11,7 +11,7 @@ pub enum GameLevel {
 }
 
 #[derive(PartialEq)]
-pub enum GameState {
+enum GameState {
     NotStarted,
     Started,
     Stopped { win: bool },
