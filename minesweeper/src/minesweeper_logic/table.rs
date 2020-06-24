@@ -3,6 +3,10 @@ use super::results::{FieldFlagResult, OpenInfo, OpenResult};
 use indexmap::IndexSet;
 use std::collections::{HashMap, HashSet};
 
+static INVALID_VALUE_ERROR: &'static str = "Invalid value!";
+static INVALID_INDEX_ERROR: &'static str = "Invalid index!";
+static OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC: &'static str = "An opened field can not be updated!";
+
 #[derive(Clone, Copy, PartialEq)]
 enum FieldState {
     Closed,
@@ -39,9 +43,6 @@ struct FieldInner {
     field_type: FieldType,
     state: FieldState,
 }
-
-static INVALID_VALUE_ERROR: &'static str = "Invalid value!";
-static OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC: &'static str = "An opened field can not be updated!";
 
 impl FieldInner {
     fn new_with_field_type(field_type: FieldType) -> FieldInner {
@@ -162,7 +163,7 @@ impl FieldVisiter {
         col: usize,
     ) -> Result<FieldVisiter, &'static str> {
         if row >= height || col >= width {
-            Err("Invalid index!")
+            Err(INVALID_INDEX_ERROR)
         } else {
             let mut fields_to_visit = IndexSet::new();
             fields_to_visit.insert((row, col));
@@ -474,7 +475,7 @@ impl Table {
     #[allow(dead_code)]
     pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
         if row >= self.height || col >= self.width {
-            Err("Invalid index!")
+            Err(INVALID_INDEX_ERROR)
         } else {
             Ok(self.fields[row][col].toggle_flag())
         }
