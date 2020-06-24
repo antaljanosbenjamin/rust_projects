@@ -24,14 +24,13 @@ pub extern "C" fn new_game(game_ptr_ptr: *mut *mut Game, game_level: GameLevel) 
     if game_ptr_ptr.is_null() {
         return;
     }
-    let mut game_ptr = unsafe { *game_ptr_ptr };
+    let game_ptr = unsafe { &mut *game_ptr_ptr };
     if !game_ptr.is_null() {
         return;
     }
 
-    let game = Game::new(game_level);
-    let boxed_game = Box::new(game);
-    game_ptr = Box::into_raw(boxed_game)
+    let boxed_game = Box::new(Game::new(game_level));
+    *game_ptr = Box::into_raw(boxed_game);
 }
 
 #[no_mangle]
@@ -44,12 +43,12 @@ pub extern "C" fn game_open(
     if game_ptr.is_null() || c_open_info_ptr.is_null() {
         return;
     }
-    let mut c_open_info = unsafe { Box::from_raw(c_open_info_ptr) };
+    let mut c_open_info = unsafe { &mut *c_open_info_ptr };
     if c_open_info.field_infos_length != 0 || c_open_info.field_infos_max_length == 0 {
         return;
     }
-    let mut boxed_game = unsafe { Box::from_raw(game_ptr) };
-    let open_info = match boxed_game.as_mut().open(row as usize, column as usize) {
+    let game = unsafe { &mut *game_ptr };
+    let open_info = match game.open(row as usize, column as usize) {
         Ok(ok) => ok,
         _ => return,
     };
