@@ -73,8 +73,8 @@ pub extern "C" fn game_open(
             _ => return,
         };
         c_field_infos[index].field_type = field_type.clone();
-        c_open_info.field_infos_length = index as u64;
         index = index + 1;
+        c_open_info.field_infos_length = index as u64;
     }
 }
 
