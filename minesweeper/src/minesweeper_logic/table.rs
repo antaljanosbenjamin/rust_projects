@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 
 static INVALID_VALUE_ERROR: &'static str = "Invalid value!";
 static INVALID_INDEX_ERROR: &'static str = "Invalid index!";
+static INVALID_SIZE_ERROR: &'static str = "Invalid size!";
 static OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC: &'static str = "An opened field can not be updated!";
 
 #[derive(Clone, Copy, PartialEq)]
@@ -322,6 +323,9 @@ impl Table {
         height: usize,
         mine_locations: HashSet<(usize, usize)>,
     ) -> Result<Table, &'static str> {
+        if width.checked_mul(height).is_none() {
+            return Err(INVALID_SIZE_ERROR);
+        }
         let fields = generate_fields(width, height, &mine_locations)?;
         Ok(Table {
             width,
