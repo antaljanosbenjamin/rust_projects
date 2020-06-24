@@ -64,8 +64,8 @@ macro_rules! return_or_assign {
 
 #[repr(C)]
 pub struct CFieldInfo {
-    row: u32,
-    column: u32,
+    row: u64,
+    column: u64,
     field_type: FieldType,
 }
 
@@ -105,8 +105,8 @@ pub extern "C" fn new_game(
 #[no_mangle]
 pub extern "C" fn game_open(
     game_ptr: *mut Game,
-    row: u32,
-    column: u32,
+    row: u64,
+    column: u64,
     c_open_info_ptr: *mut COpenInfo,
     ei_ptr: *mut CErrorInfo,
 ) {
@@ -135,11 +135,11 @@ pub extern "C" fn game_open(
     };
     let mut index: usize = 0;
     for (coords, field_type) in open_info.field_infos.iter() {
-        c_field_infos[index].row = match u32::try_from(coords.0) {
+        c_field_infos[index].row = match u64::try_from(coords.0) {
             Ok(value) => value,
             _ => return_error!(ei_ptr),
         };
-        c_field_infos[index].column = match u32::try_from(coords.1) {
+        c_field_infos[index].column = match u64::try_from(coords.1) {
             Ok(value) => value,
             _ => return_error!(ei_ptr),
         };
