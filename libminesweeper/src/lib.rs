@@ -154,8 +154,7 @@ pub extern "C" fn destroy_game(game_ptr: *mut Game) {
     if game_ptr.is_null() {
         return;
     }
-    let boxed_game = unsafe {
+    let _ = unsafe {
         Box::from_raw(game_ptr);
     };
-    drop(boxed_game);
 }
