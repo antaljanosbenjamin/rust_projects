@@ -1,0 +1,2 @@
+[workspace]
+members = ["minesweeper", "libminesweeper", "monty-hall"]
