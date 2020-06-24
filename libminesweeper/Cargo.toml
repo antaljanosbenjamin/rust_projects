@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 minesweeper = { version = "^0", path = "../minesweeper" }
+libc = "0.2"
 
 [lib]
 name = "minesweeper"
