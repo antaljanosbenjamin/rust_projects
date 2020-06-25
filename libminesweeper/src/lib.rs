@@ -1,5 +1,5 @@
 use libc::c_char;
-use minesweeper::{FieldType, Game, GameLevel, OpenResult};
+use minesweeper::{FieldFlagResult, FieldType, Game, GameLevel, OpenResult};
 use std::cmp;
 use std::convert::TryFrom;
 use std::ptr;
@@ -185,6 +185,22 @@ pub extern "C" fn game_open(
         index = index + 1;
     }
     c_open_info.field_infos_length = index as u64;
+}
+
+#[no_mangle]
+pub extern "C" fn game_toggle_flag(
+    game_ptr: *mut Game,
+    row: u64,
+    column: u64,
+    field_flag_result_ptr: *mut FieldFlagResult,
+    ei_ptr: *mut CErrorInfo,
+) {
+    if game_ptr.is_null() || field_flag_result_ptr.is_null() {
+        return_error!(ei_ptr, CError::NullPointerAsInput);
+    }
+    let game = unsafe { &mut *game_ptr };
+    let flag_result = unsafe { &mut *field_flag_result_ptr };
+    *flag_result = return_or_assign!(game.toggle_flag(row as usize, column as usize), ei_ptr);
 }
 
 #[no_mangle]
