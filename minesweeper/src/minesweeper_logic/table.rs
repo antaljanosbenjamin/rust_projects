@@ -427,6 +427,9 @@ impl Table {
     }
 
     pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+        if row >= self.height || col >= self.width {
+            return Err(INVALID_INDEX_ERROR);
+        }
         if self.fields[row][col].get_field_state().is_flagged() {
             return Ok(OpenInfo {
                 result: OpenResult::IsFlagged,
