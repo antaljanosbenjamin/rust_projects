@@ -8,8 +8,9 @@ use std::slice;
 #[repr(C)]
 pub enum CError {
     Ok,
-    NullPointerAsInput,
     InvalidInput,
+    NullPointerAsInput,
+    IndexIsOutOfRange,
     InsufficientBuffer,
     UnexpectedError,
 }
@@ -102,26 +103,64 @@ pub extern "C" fn new_game(
     *game_ptr = Box::into_raw(Box::new(Game::new(game_level)));
 }
 
+fn get_max_u64_index() -> u64 {
+    u64::try_from(usize::MAX).unwrap_or(u64::MAX)
+}
+
+fn get_max_usize_index() -> usize {
+    usize::try_from(u64::MAX).unwrap_or(usize::MAX)
+}
+
+fn convert_indices_u64_to_usize(row: u64, column: u64) -> Result<(usize, usize), &'static str> {
+    let max_index = get_max_u64_index();
+    if row > max_index || column > max_index {
+        Err("Coordinates cannot be converted to usize!")
+    } else {
+        Ok((
+            usize::try_from(row).expect("Conversion failed"),
+            usize::try_from(column).expect("Conversion failed"),
+        ))
+    }
+}
+
+fn convert_indices_usize_to_u64(row: usize, column: usize) -> Result<(u64, u64), &'static str> {
+    let max_index = get_max_usize_index();
+    if row > max_index || column > max_index {
+        Err("Coordinates cannot be converted to u64!")
+    } else {
+        Ok((
+            u64::try_from(row).expect("Conversion failed"),
+            u64::try_from(column).expect("Conversion failed"),
+        ))
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn game_open(
     game_ptr: *mut Game,
     row: u64,
     column: u64,
     c_open_info_ptr: *mut COpenInfo,
-    ei_ptr: *mut CErrorInfo,
+    c_ei_ptr: *mut CErrorInfo,
 ) {
     if game_ptr.is_null() || c_open_info_ptr.is_null() {
-        return_error!(ei_ptr, CError::NullPointerAsInput);
+        return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
+    let (urow, ucolumn) = return_or_assign!(
+        convert_indices_u64_to_usize(row, column),
+        c_ei_ptr,
+        CError::IndexIsOutOfRange
+    );
+
     let mut c_open_info = unsafe { &mut *c_open_info_ptr };
     if c_open_info.field_infos_length != 0 {
-        return_error!(ei_ptr, CError::InvalidInput);
+        return_error!(c_ei_ptr, CError::InvalidInput);
     }
     if c_open_info.field_infos_max_length == 0 {
-        return_error!(ei_ptr, CError::InsufficientBuffer);
+        return_error!(c_ei_ptr, CError::InsufficientBuffer);
     }
     let game = unsafe { &mut *game_ptr };
-    let open_info = return_or_assign!(game.open(row as usize, column as usize), ei_ptr);
+    let open_info = return_or_assign!(game.open(urow, ucolumn), c_ei_ptr);
 
     if open_info.field_infos.len() as u64 > c_open_info.field_infos_max_length {
         return;
@@ -135,14 +174,13 @@ pub extern "C" fn game_open(
     };
     let mut index: usize = 0;
     for (coords, field_type) in open_info.field_infos.iter() {
-        c_field_infos[index].row = match u64::try_from(coords.0) {
-            Ok(value) => value,
-            _ => return_error!(ei_ptr),
-        };
-        c_field_infos[index].column = match u64::try_from(coords.1) {
-            Ok(value) => value,
-            _ => return_error!(ei_ptr),
-        };
+        let converted_coords = return_or_assign!(
+            convert_indices_usize_to_u64(coords.0, coords.1),
+            c_ei_ptr,
+            CError::UnexpectedError
+        );
+        c_field_infos[index].row = converted_coords.0;
+        c_field_infos[index].column = converted_coords.1;
         c_field_infos[index].field_type = field_type.clone();
         index = index + 1;
     }
