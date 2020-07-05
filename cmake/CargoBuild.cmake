@@ -3,15 +3,15 @@ function(cargo_build_library LIB_NAME)
 
   # the OUTPUT parameter of add_custom_command doesn't support generator
   # expressions, so we have to use if-else
+
+  set(CARGO_ARGS build --target-dir ${CARGO_TARGET_DIR})
   if(CMAKE_BUILD_TYPE STREQUAL Release)
-    set(IS_RELEASE TRUE)
     set(CARGO_BUILD_TYPE release)
+    set(CARGO_ARGS "${CARGO_ARGS} --release")
   else()
-    set(IS_RELEASE FALSE)
     set(CARGO_BUILD_TYPE debug)
   endif()
-  set(CARGO_ARGS build --target-dir ${CARGO_TARGET_DIR}
-                 $<$<BOOL:${IS_RELEASE}>:--release>)
+
   set(LIB_DIR "${CARGO_TARGET_DIR}/${CARGO_BUILD_TYPE}")
   set(STATIC_LIB_FILE
       "${LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
