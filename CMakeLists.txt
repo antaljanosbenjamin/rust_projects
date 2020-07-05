@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.1.3)
+
+project(rust_projects)
+
+include(cmake/CargoBuild.cmake)
+
+add_subdirectory(cminesweeper)
