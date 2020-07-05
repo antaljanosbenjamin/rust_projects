@@ -16,16 +16,27 @@ function(cargo_build_library LIB_NAME)
   set(STATIC_LIB_FILE
       "${LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
-  set(SHARED_LIB_FILE
-      "${LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
-  )
+  set(SHARED_LIB_SONAME
+      "${CMAKE_SHARED_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(SHARED_LIB_FILE "${LIB_DIR}/${SHARED_LIB_SONAME}")
   set(LIB_FILES "${STATIC_LIB_FILE} ${SHARED_LIB_FILE}")
 
   file(GLOB_RECURSE LIB_SOURCES "*.rs")
 
+  if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    set(CARGO_LINKER_ARGS
+        "-C link-arg=-Wl,-soname -C link-arg=-Wl,${SHARED_LIB_SONAME}" VERBATIM)
+  elseif(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    set(CARGO_LINKER_ARGS
+        "-C link-arg=-Wl,-install_name -C link-arg=-Wl,${SHARED_LIB_SONAME}"
+        VERBATIM)
+  endif()
+  set(CARGO_ENV_COMMAND ${CMAKE_COMMAND} -E env
+                        "RUSTFLAGS=${CARGO_LINKER_ARGS}")
+
   add_custom_command(
     OUTPUT ${LIB_FILES}
-    COMMAND cargo ${CARGO_ARGS}
+    COMMAND ${CARGO_ENV_COMMAND} cargo ARGS ${CARGO_ARGS}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DEPENDS ${LIB_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml
     COMMENT "running cargo")
@@ -53,5 +64,4 @@ function(cargo_build_library LIB_NAME)
   add_dependencies(${SHARED_LIB_TARGET_NAME} ${LIB_COMMON_TARGET_NAME})
   set_target_properties(${SHARED_LIB_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
                                                              ${SHARED_LIB_FILE})
-  target_link_directories(${SHARED_LIB_TARGET_NAME} INTERFACE ${LIB_DIR})
 endfunction()
