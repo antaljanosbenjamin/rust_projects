@@ -87,7 +87,7 @@ pub struct CErrorInfo {
 }
 
 #[no_mangle]
-pub extern "C" fn new_game(
+pub extern "C" fn minesweeper_new_game(
     game_ptr_ptr: *mut *mut Game,
     game_level: GameLevel,
     ei_ptr: *mut CErrorInfo,
@@ -136,7 +136,7 @@ fn convert_indices_usize_to_u64(row: usize, column: usize) -> Result<(u64, u64),
 }
 
 #[no_mangle]
-pub extern "C" fn game_open(
+pub extern "C" fn minesweeper_game_open(
     game_ptr: *mut Game,
     row: u64,
     column: u64,
@@ -188,7 +188,7 @@ pub extern "C" fn game_open(
 }
 
 #[no_mangle]
-pub extern "C" fn game_toggle_flag(
+pub extern "C" fn minesweeper_game_toggle_flag(
     game_ptr: *mut Game,
     row: u64,
     column: u64,
@@ -204,7 +204,7 @@ pub extern "C" fn game_toggle_flag(
 }
 
 #[no_mangle]
-pub extern "C" fn destroy_game(game_ptr: *mut Game) {
+pub extern "C" fn minesweeper_destroy_game(game_ptr: *mut Game) {
     if game_ptr.is_null() {
         return;
     }
