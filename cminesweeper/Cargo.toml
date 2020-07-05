@@ -1,5 +1,5 @@
 [package]
-name = "minesweeper_c_api"
+name = "cminesweeper"
 version = "0.1.0"
 authors = ["János Benjamin Antal <antal.janos.benjamin@gmail.com>"]
 edition = "2018"
@@ -11,5 +11,5 @@ minesweeper = { version = "^0", path = "../minesweeper" }
 libc = "0.2"
 
 [lib]
-name = "minesweeper"
-crate-type = ["cdylib"]
+name = "cminesweeper"
+crate-type = ["staticlib", "cdylib"]

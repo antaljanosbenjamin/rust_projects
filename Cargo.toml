@@ -1,2 +1,2 @@
 [workspace]
-members = ["minesweeper", "libminesweeper", "monty-hall"]
+members = ["minesweeper", "cminesweeper", "monty-hall"]
