@@ -41,7 +41,7 @@ function(cargo_build_library LIB_NAME)
   target_link_directories(${STATIC_LIB_TARGET_NAME} INTERFACE ${LIB_DIR})
 
   set(SHARED_LIB_TARGET_NAME ${LIB_NAME}_shared)
-  add_library(${SHARED_LIB_TARGET_NAME} STATIC IMPORTED GLOBAL)
+  add_library(${SHARED_LIB_TARGET_NAME} SHARED IMPORTED GLOBAL)
   add_dependencies(${SHARED_LIB_TARGET_NAME} ${LIB_COMMON_TARGET_NAME})
   set_target_properties(${SHARED_LIB_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
                                                              ${SHARED_LIB_FILE})
