@@ -61,6 +61,12 @@ macro_rules! return_or_assign {
     };
 }
 
+macro_rules! initialize_to_ok {
+    ($error_info_ptr:expr) => {
+        unsafe { &mut *$error_info_ptr }.error_code = CError::Ok;
+    };
+}
+
 // Based on this https://s3.amazonaws.com/temp.michaelfbryan.com/objects/index.html
 
 #[repr(C)]
@@ -90,14 +96,15 @@ pub struct CErrorInfo {
 pub extern "C" fn minesweeper_new_game(
     game_ptr_ptr: *mut *mut Game,
     game_level: GameLevel,
-    ei_ptr: *mut CErrorInfo,
+    c_ei_ptr: *mut CErrorInfo,
 ) {
+    initialize_to_ok!(c_ei_ptr);
     if game_ptr_ptr.is_null() {
-        return_error!(ei_ptr, CError::NullPointerAsInput);
+        return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
     let game_ptr = unsafe { &mut *game_ptr_ptr };
     if !game_ptr.is_null() {
-        return_error!(ei_ptr, CError::InvalidInput);
+        return_error!(c_ei_ptr, CError::InvalidInput);
     }
 
     *game_ptr = Box::into_raw(Box::new(Game::new(game_level)));
@@ -143,6 +150,7 @@ pub extern "C" fn minesweeper_game_open(
     c_open_info_ptr: *mut COpenInfo,
     c_ei_ptr: *mut CErrorInfo,
 ) {
+    initialize_to_ok!(c_ei_ptr);
     if game_ptr.is_null() || c_open_info_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
@@ -193,14 +201,15 @@ pub extern "C" fn minesweeper_game_toggle_flag(
     row: u64,
     column: u64,
     field_flag_result_ptr: *mut FieldFlagResult,
-    ei_ptr: *mut CErrorInfo,
+    c_ei_ptr: *mut CErrorInfo,
 ) {
+    initialize_to_ok!(c_ei_ptr);
     if game_ptr.is_null() || field_flag_result_ptr.is_null() {
-        return_error!(ei_ptr, CError::NullPointerAsInput);
+        return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
     let game = unsafe { &mut *game_ptr };
     let flag_result = unsafe { &mut *field_flag_result_ptr };
-    *flag_result = return_or_assign!(game.toggle_flag(row as usize, column as usize), ei_ptr);
+    *flag_result = return_or_assign!(game.toggle_flag(row as usize, column as usize), c_ei_ptr);
 }
 
 #[no_mangle]
