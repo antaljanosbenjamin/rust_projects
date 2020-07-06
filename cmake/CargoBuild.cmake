@@ -33,20 +33,18 @@ function(cargo_build_library LIB_NAME)
     "*.rs"
   )
 
-  if(CMAKE_C_COMPILER_ID
-     STREQUAL
-     "GNU"
-  )
-    set(CARGO_LINKER_ARGS "-C link-arg=-Wl,-soname -C link-arg=-Wl,${SHARED_LIB_SONAME}" VERBATIM)
-  elseif(
-    CMAKE_C_COMPILER_ID
-    STREQUAL
-    "Clang"
-  )
-    set(CARGO_LINKER_ARGS "-C link-arg=-Wl,-install_name -C link-arg=-Wl,${SHARED_LIB_SONAME}"
-                          VERBATIM
-    )
+  if(UNIX)
+    set(LINKER_SONAME_ARG_NAME soname)
+  elseif(APPLE)
+    set(LINKER_SONAME_ARG_NAME install_name)
   endif()
+
+  set(CARGO_LINKER_ARGS
+      "-C link-arg=-Wl,-${LINKER_SONAME_ARG_NAME} -C link-arg=-Wl,${SHARED_LIB_SONAME}" VERBATIM
+  )
+
+  set(CARGO_LINKER_ARGS "-C link-arg=-Wl,-soname -C link-arg=-Wl,${SHARED_LIB_SONAME}" VERBATIM)
+
   set(CARGO_ENV_COMMAND ${CMAKE_COMMAND} -E env "RUSTFLAGS=${CARGO_LINKER_ARGS}")
 
   add_custom_command(
