@@ -14,7 +14,7 @@ function(cargo_build_library LIB_NAME)
      Release
   )
     set(CARGO_BUILD_TYPE release)
-    set(CARGO_ARGS "${CARGO_ARGS} --release")
+    set(CARGO_ARGS ${CARGO_ARGS} --release)
   else()
     set(CARGO_BUILD_TYPE debug)
   endif()
