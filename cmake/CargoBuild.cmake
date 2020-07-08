@@ -92,7 +92,7 @@ function(cargo_build_library LIB_NAME)
   elseif(UNIX)
     target_link_libraries(${STATIC_LIB_TARGET_NAME} INTERFACE pthread dl)
   else()
-    message(ERROR "Not supported platform")
+    message(FATAL_ERROR "Not supported platform")
   endif()
 
   set(SHARED_LIB_TARGET_NAME ${LIB_NAME}_shared)
