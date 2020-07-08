@@ -74,7 +74,21 @@ function(cargo_build_library LIB_NAME)
   )
 
   if(WIN32)
-    message(ERROR "Not supported platform")
+    set_property(
+      TARGET ${STATIC_LIB_TARGET_NAME}
+      PROPERTY INTERFACE_LINK_LIBRARIES
+               advapi32
+               userenv
+               ws2_32
+    )
+    set_property(TARGET ${STATIC_LIB_TARGET_NAME} PROPERTY INTERFACE_LINK_LIBRARIES_DEBUG msvcrtd)
+    set_property(
+      TARGET ${STATIC_LIB_TARGET_NAME} PROPERTY INTERFACE_LINK_LIBRARIES_MINSIZEREL msvcrt
+    )
+    set_property(
+      TARGET ${STATIC_LIB_TARGET_NAME} PROPERTY INTERFACE_LINK_LIBRARIES_RELWITHDEBINFO msvcrt
+    )
+    set_property(TARGET ${STATIC_LIB_TARGET_NAME} PROPERTY INTERFACE_LINK_LIBRARIES_RELEASE msvcrt)
   elseif(UNIX)
     target_link_libraries(${STATIC_LIB_TARGET_NAME} INTERFACE pthread dl)
   else()
