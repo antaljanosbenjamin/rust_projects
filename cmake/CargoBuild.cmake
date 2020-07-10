@@ -11,7 +11,7 @@ function(cargo_build_library LIB_NAME)
   )
   if(CMAKE_BUILD_TYPE
      STREQUAL
-     Release
+     "Release"
   )
     set(CARGO_BUILD_TYPE release)
     set(CARGO_ARGS ${CARGO_ARGS} --release)
