@@ -52,7 +52,7 @@ function(cargo_build_library LIB_NAME)
     COMMAND ${CARGO_ENV_COMMAND} cargo ARGS ${CARGO_ARGS}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DEPENDS ${LIB_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml
-    COMMENT "running cargo"
+    COMMENT "running cargo for ${LIB_NAME} creating (${LIB_FILES})..."
   )
 
   set(LIB_COMMON_TARGET_NAME ${LIB_NAME}_target)
