@@ -4,15 +4,8 @@ function(cargo_build_library LIB_NAME)
   # the OUTPUT parameter of add_custom_command doesn't support generator expressions, so we have to
   # use if-else
 
-  set(CARGO_ARGS
-      build
-      --target-dir
-      ${CARGO_TARGET_DIR}
-  )
-  if(CMAKE_BUILD_TYPE
-     STREQUAL
-     "Release"
-  )
+  set(CARGO_ARGS build --target-dir ${CARGO_TARGET_DIR})
+  if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CARGO_BUILD_TYPE release)
     set(CARGO_ARGS ${CARGO_ARGS} --release)
   else()
@@ -27,11 +20,7 @@ function(cargo_build_library LIB_NAME)
   set(SHARED_LIB_FILE ${LIB_DIR}/${SHARED_LIB_SONAME})
   set(LIB_FILES ${STATIC_LIB_FILE} ${SHARED_LIB_FILE})
 
-  file(
-    GLOB_RECURSE
-    LIB_SOURCES
-    "*.rs"
-  )
+  file(GLOB_RECURSE LIB_SOURCES "*.rs")
 
   if(UNIX)
     set(LINKER_SONAME_ARG_NAME soname)
@@ -59,27 +48,14 @@ function(cargo_build_library LIB_NAME)
   add_custom_target(${LIB_COMMON_TARGET_NAME} ALL DEPENDS ${LIB_FILES})
 
   set(STATIC_LIB_TARGET_NAME ${LIB_NAME}_static)
-  add_library(
-    ${STATIC_LIB_TARGET_NAME}
-    STATIC
-    IMPORTED
-    GLOBAL
-  )
+  add_library(${STATIC_LIB_TARGET_NAME} STATIC IMPORTED GLOBAL)
   add_dependencies(${STATIC_LIB_TARGET_NAME} ${LIB_COMMON_TARGET_NAME})
   set_target_properties(${STATIC_LIB_TARGET_NAME} PROPERTIES IMPORTED_LOCATION ${STATIC_LIB_FILE})
-  target_link_directories(
-    ${STATIC_LIB_TARGET_NAME}
-    INTERFACE
-    ${LIB_DIR}
-  )
+  target_link_directories(${STATIC_LIB_TARGET_NAME} INTERFACE ${LIB_DIR})
 
   if(WIN32)
     set_property(
-      TARGET ${STATIC_LIB_TARGET_NAME}
-      PROPERTY INTERFACE_LINK_LIBRARIES
-               advapi32
-               userenv
-               ws2_32
+      TARGET ${STATIC_LIB_TARGET_NAME} PROPERTY INTERFACE_LINK_LIBRARIES advapi32 userenv ws2_32
     )
     set_property(TARGET ${STATIC_LIB_TARGET_NAME} PROPERTY INTERFACE_LINK_LIBRARIES_DEBUG msvcrtd)
     set_property(
@@ -96,12 +72,7 @@ function(cargo_build_library LIB_NAME)
   endif()
 
   set(SHARED_LIB_TARGET_NAME ${LIB_NAME}_shared)
-  add_library(
-    ${SHARED_LIB_TARGET_NAME}
-    SHARED
-    IMPORTED
-    GLOBAL
-  )
+  add_library(${SHARED_LIB_TARGET_NAME} SHARED IMPORTED GLOBAL)
   add_dependencies(${SHARED_LIB_TARGET_NAME} ${LIB_COMMON_TARGET_NAME})
   set_target_properties(${SHARED_LIB_TARGET_NAME} PROPERTIES IMPORTED_LOCATION ${SHARED_LIB_FILE})
 
