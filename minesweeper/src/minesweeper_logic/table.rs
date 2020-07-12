@@ -7,6 +7,9 @@ use strum_macros::Display;
 static INVALID_VALUE_ERROR: &'static str = "Invalid value!";
 static INVALID_INDEX_ERROR: &'static str = "Invalid index!";
 static INVALID_SIZE_ERROR: &'static str = "Invalid size!";
+static TOO_MUCH_MINES_ERROR: &'static str = "Too much mines!";
+static TOO_FEW_MINES_ERROR: &'static str = "Too few mines!";
+static MINE_DOES_NOT_HAVE_VALUE_ERROR: &'static str = "Mine does not have value!";
 static OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC: &'static str = "An opened field can not be updated!";
 
 #[derive(Eq, PartialEq, Display, Debug, Clone, Copy)]
@@ -219,10 +222,10 @@ fn generate_mine_locations(
     let min_number_of_mines = 1;
 
     if max_number_of_mines < number_of_mines {
-        return Err("Too much mines!");
+        return Err(TOO_MUCH_MINES_ERROR);
     }
     if min_number_of_mines > number_of_mines {
-        return Err("Too few mines!");
+        return Err(TOO_FEW_MINES_ERROR);
     }
 
     let mut mine_locations = HashSet::new();
@@ -271,7 +274,7 @@ fn get_field_value(
     mine_locations: &HashSet<(usize, usize)>,
 ) -> Result<u8, &'static str> {
     if mine_locations.contains(&(row, col)) {
-        return Err("Mine does not have value!");
+        return Err(MINE_DOES_NOT_HAVE_VALUE_ERROR);
     }
     let mut field_value: u8 = 0;
 
