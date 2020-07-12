@@ -357,25 +357,6 @@ impl Table {
         self.width * self.height == self.mine_locations.len() + self.number_of_opened_fields
     }
 
-    #[allow(dead_code)]
-    pub fn print(&self) {
-        for row in self.fields.iter() {
-            for cell in row.iter() {
-                print!("{}", cell.get_char_repr());
-            }
-            println!("");
-        }
-
-        if self.all_fields_are_open() {
-            println!("You are the winner!");
-        } else {
-            println!(
-                "Number of fields that are needed to be opened: {}",
-                self.width * self.height - self.mine_locations.len() - self.number_of_opened_fields
-            );
-        }
-    }
-
     fn move_mine(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
         if self.fields[row][col].field_type.is_mine() {
             let mut new_place = (0, 0);
