@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use strum_macros::Display;
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Display, Debug)]
+#[derive(Eq, PartialEq, Display, Debug)]
 pub enum FieldFlagResult {
     Flagged,
     FlagRemoved,
@@ -11,7 +11,7 @@ pub enum FieldFlagResult {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Display, Debug)]
+#[derive(Eq, PartialEq, Display, Debug)]
 pub enum OpenResult {
     Ok,
     IsFlagged,
@@ -19,7 +19,6 @@ pub enum OpenResult {
     WINNER,
 }
 
-#[derive(PartialEq)]
 pub struct OpenInfo {
     pub result: OpenResult,
     pub field_infos: HashMap<(usize, usize), FieldType>,

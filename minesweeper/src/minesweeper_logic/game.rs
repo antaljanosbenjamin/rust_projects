@@ -1,16 +1,18 @@
 use super::results::{FieldFlagResult, OpenInfo, OpenResult};
 use super::table::Table;
 use hrsw::Stopwatch;
+use strum_macros::Display;
 
 #[repr(C)]
 #[allow(dead_code)]
+#[derive(Eq, PartialEq, Display, Debug)]
 pub enum GameLevel {
     Beginner,
     Intermediate,
     Expert,
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq, Display, Debug)]
 enum GameState {
     NotStarted,
     Started,

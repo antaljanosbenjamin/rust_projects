@@ -2,13 +2,14 @@ use super::field_type::FieldType;
 use super::results::{FieldFlagResult, OpenInfo, OpenResult};
 use indexmap::IndexSet;
 use std::collections::{HashMap, HashSet};
+use strum_macros::Display;
 
 static INVALID_VALUE_ERROR: &'static str = "Invalid value!";
 static INVALID_INDEX_ERROR: &'static str = "Invalid index!";
 static INVALID_SIZE_ERROR: &'static str = "Invalid size!";
 static OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC: &'static str = "An opened field can not be updated!";
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Eq, PartialEq, Display, Debug, Clone, Copy)]
 enum FieldState {
     Closed,
     Opened,
@@ -31,7 +32,7 @@ trait Field {
     fn get_char_repr(&self) -> char;
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq, Display, Debug)]
 enum FieldOpenResult {
     AlreadyOpened,
     SimpleOpen,
