@@ -1,9 +1,6 @@
-use minesweeper::FieldType;
 use minesweeper::{FieldFlagResult, OpenResult};
 use minesweeper::{Game, GameLevel};
 
-use std::collections::HashMap;
-use std::fmt::{Display, Error, Formatter};
 use std::io;
 use std::vec::Vec;
 
@@ -50,26 +47,6 @@ fn print_fields(fields: &Vec<Vec<char>>) {
 enum Action {
     Open,
     Flag,
-}
-
-struct DisplayFieldInfos(HashMap<(usize, usize), FieldType>);
-
-impl Display for DisplayFieldInfos {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        let mut comma_separated = String::new();
-
-        for (coords, field_type) in self.0.iter() {
-            comma_separated.push_str(&format!(
-                "[{}, {}] = {}({}),\n",
-                coords.0,
-                coords.1,
-                field_type,
-                field_type.get_char_repr()
-            ));
-        }
-
-        writeln!(f, "{}", comma_separated)
-    }
 }
 
 fn main() {
