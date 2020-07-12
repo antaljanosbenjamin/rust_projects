@@ -89,7 +89,7 @@ impl FieldInner {
 
     fn update_type_with_value(&mut self, value: u8) -> Result<(), &'static str> {
         if self.state == FieldState::Opened {
-            panic!(OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC);
+            return Err(OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC);
         }
         if value < 1 || value > 9 {
             Err(INVALID_VALUE_ERROR)
