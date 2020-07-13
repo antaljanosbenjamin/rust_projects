@@ -10,7 +10,7 @@ static INVALID_SIZE_ERROR: &'static str = "Invalid size!";
 static TOO_MUCH_MINES_ERROR: &'static str = "Too much mines!";
 static TOO_FEW_MINES_ERROR: &'static str = "Too few mines!";
 static MINE_DOES_NOT_HAVE_VALUE_ERROR: &'static str = "Mine does not have value!";
-static OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC: &'static str = "An opened field can not be updated!";
+static OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR: &'static str = "An opened field can not be updated!";
 
 #[derive(Eq, PartialEq, Display, Debug, Clone, Copy)]
 enum FieldState {
@@ -73,23 +73,27 @@ impl FieldInner {
         }
     }
 
-    fn update_type_to_mine(&mut self) {
+    fn update_type_to_mine(&mut self) -> Result<(), &'static str> {
         if self.state == FieldState::Opened {
-            panic!(OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC);
+            Err(OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR)
+        } else {
+            self.field_type = FieldType::Mine;
+            Ok(())
         }
-        self.field_type = FieldType::Mine;
     }
 
-    fn update_type_to_empty(&mut self) {
+    fn update_type_to_empty(&mut self) -> Result<(), &'static str> {
         if self.state == FieldState::Opened {
-            panic!(OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC);
+            Err(OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR)
+        } else {
+            self.field_type = FieldType::Empty;
+            Ok(())
         }
-        self.field_type = FieldType::Empty;
     }
 
     fn update_type_with_value(&mut self, value: u8) -> Result<(), &'static str> {
         if self.state == FieldState::Opened {
-            return Err(OPENED_FIELD_CAN_NOT_BE_UPDATED_PANIC);
+            Err(OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR)
         }
         if value < 1 || value > 9 {
             Err(INVALID_VALUE_ERROR)
@@ -369,8 +373,10 @@ impl Table {
                 visiter.extend_with_unvisited_neighbors(r, c);
             }
 
-            self.fields[new_place.0][new_place.1].update_type_to_mine();
-            self.fields[row][col].update_type_to_empty();
+            self.fields[new_place.0][new_place.1]
+                .update_type_to_mine()
+                .unwrap();
+            self.fields[row][col].update_type_to_empty().unwrap();
             self.mine_locations.remove(&(row, col));
             self.mine_locations.insert(new_place);
             let mut fields_to_recalculate = HashSet::new();
@@ -384,7 +390,7 @@ impl Table {
                 if !self.fields[r][c].field_type.is_mine() {
                     let field_value = self.get_field_value(r, c).unwrap();
                     match field_value {
-                        0 => self.fields[r][c].update_type_to_empty(),
+                        0 => self.fields[r][c].update_type_to_empty().unwrap(),
                         _ => self.fields[r][c]
                             .update_type_with_value(field_value)
                             .unwrap(),
