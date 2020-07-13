@@ -44,6 +44,7 @@ enum FieldOpenResult {
     IsFlagged,
 }
 
+#[derive(Debug)]
 struct FieldInner {
     field_type: FieldType,
     state: FieldState,
@@ -552,6 +553,76 @@ mod test {
             mine_locations,
             fields,
         }
+    }
+
+    fn check_invalid_value_error(result: Result<FieldInner, &'static str>) {
+        assert!(result.is_err());
+        assert_eq!(INVALID_VALUE_ERROR, result.err().unwrap());
+    }
+
+    fn check_opened_field_cannot_be_updated_error(result: Result<(), &'static str>) {
+        assert!(result.is_err());
+        assert_eq!(OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR, result.err().unwrap());
+    }
+
+    #[test]
+    fn new_field_with_invalid_number() {
+        check_invalid_value_error(FieldInner::new_numbered(0));
+        check_invalid_value_error(FieldInner::new_numbered(9));
+    }
+
+    #[test]
+    fn update_type_to_empty() {
+        let mut field = FieldInner::new_numbered(1).unwrap();
+        assert_eq!(FieldType::Numbered(1), field.get_field_type());
+        assert_eq!(Ok(()), field.update_type_to_empty());
+        assert_eq!(FieldType::Empty, field.get_field_type());
+        assert_eq!(field.open(), FieldOpenResult::MultiOpen);
+        check_opened_field_cannot_be_updated_error(field.update_type_to_empty());
+    }
+
+    #[test]
+    fn update_type_to_numbered() {
+        let mut field = FieldInner::new_numbered(2).unwrap();
+        assert_eq!(FieldType::Numbered(2), field.get_field_type());
+        assert_eq!(Ok(()), field.update_type_with_value(3));
+        assert_eq!(FieldType::Numbered(3), field.get_field_type());
+        assert_eq!(field.open(), FieldOpenResult::SimpleOpen);
+        check_opened_field_cannot_be_updated_error(field.update_type_with_value(4));
+    }
+
+    #[test]
+    fn update_type_to_mine() {
+        let mut field = FieldInner::new_numbered(5).unwrap();
+        assert_eq!(FieldType::Numbered(5), field.get_field_type());
+        assert_eq!(Ok(()), field.update_type_to_mine());
+        assert_eq!(FieldType::Mine, field.get_field_type());
+        assert_eq!(field.open(), FieldOpenResult::Boom);
+        check_opened_field_cannot_be_updated_error(field.update_type_with_value(8));
+    }
+
+    #[test]
+    fn update_type_from_mine() {
+        let mut field = FieldInner::new_mine();
+        assert_eq!(FieldType::Mine, field.get_field_type());
+        assert_eq!(Ok(()), field.update_type_to_empty());
+        assert_eq!(FieldType::Empty, field.get_field_type());
+        field = FieldInner::new_mine();
+        assert_eq!(FieldType::Mine, field.get_field_type());
+        assert_eq!(Ok(()), field.update_type_with_value(3));
+        assert_eq!(FieldType::Numbered(3), field.get_field_type());
+    }
+
+    #[test]
+    fn update_type_from_emtpy() {
+        let mut field = FieldInner::new_empty();
+        assert_eq!(FieldType::Empty, field.get_field_type());
+        assert_eq!(Ok(()), field.update_type_to_mine());
+        assert_eq!(FieldType::Mine, field.get_field_type());
+        field = FieldInner::new_empty();
+        assert_eq!(FieldType::Empty, field.get_field_type());
+        assert_eq!(Ok(()), field.update_type_with_value(8));
+        assert_eq!(FieldType::Numbered(8), field.get_field_type());
     }
 
     #[test]
