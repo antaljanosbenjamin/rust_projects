@@ -3,6 +3,16 @@ rust:
   - stable
   - beta
 
+matrix:
+  include:
+    - os: linux
+      name: 'Linux'
+      dist: bionic
+    - os: windows
+      name: 'Windows'
+    - os: osx
+      name: 'OSX'
+
 script:
   - cargo build
   - cargo test
