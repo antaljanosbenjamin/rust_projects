@@ -555,6 +555,11 @@ mod test {
         }
     }
 
+    fn check_invalid_size_error(result: Result<Table, &'static str>) {
+        assert!(result.is_err());
+        assert_eq!(INVALID_SIZE_ERROR, result.err().unwrap());
+    }
+
     fn check_invalid_value_error(result: Result<FieldInner, &'static str>) {
         assert!(result.is_err());
         assert_eq!(INVALID_VALUE_ERROR, result.err().unwrap());
@@ -623,6 +628,34 @@ mod test {
         assert_eq!(FieldType::Empty, field.get_field_type());
         assert_eq!(Ok(()), field.update_type_with_value(8));
         assert_eq!(FieldType::Numbered(8), field.get_field_type());
+    }
+
+    #[test]
+    fn get_value_of_mine() {
+        let mut mine_locations = HashSet::new();
+        mine_locations.insert((1, 1));
+        let result = get_field_value(10, 10, 1, 1, &mine_locations);
+        assert!(result.is_err());
+        assert_eq!(MINE_DOES_NOT_HAVE_VALUE_ERROR, result.err().unwrap());
+    }
+
+    #[test]
+    fn create_game_with_invalid_sizes() {
+        check_invalid_size_error(Table::with_custom_mines(
+            usize::MAX,
+            usize::MAX,
+            HashSet::new(),
+        ));
+        check_invalid_size_error(Table::with_custom_mines(
+            usize::MAX / 2 + 1,
+            2,
+            HashSet::new(),
+        ));
+        check_invalid_size_error(Table::with_custom_mines(
+            usize::MAX / 5 + 4,
+            5,
+            HashSet::new(),
+        ));
     }
 
     #[test]
