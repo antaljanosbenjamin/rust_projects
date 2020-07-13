@@ -50,6 +50,10 @@ struct FieldInner {
 }
 
 impl FieldInner {
+    fn is_valid_value(value: u8) -> bool {
+        value > 0 && value < 9
+    }
+
     fn new_with_field_type(field_type: FieldType) -> FieldInner {
         FieldInner {
             field_type,
@@ -66,7 +70,7 @@ impl FieldInner {
     }
 
     fn new_numbered(value: u8) -> Result<FieldInner, &'static str> {
-        if value < 1 || value > 9 {
+        if !FieldInner::is_valid_value(value) {
             Err(INVALID_VALUE_ERROR)
         } else {
             Ok(FieldInner::new_with_field_type(FieldType::Numbered(value)))
@@ -94,8 +98,7 @@ impl FieldInner {
     fn update_type_with_value(&mut self, value: u8) -> Result<(), &'static str> {
         if self.state == FieldState::Opened {
             Err(OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR)
-        }
-        if value < 1 || value > 9 {
+        } else if !FieldInner::is_valid_value(value) {
             Err(INVALID_VALUE_ERROR)
         } else {
             self.field_type = FieldType::Numbered(value);
