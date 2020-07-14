@@ -640,6 +640,62 @@ mod test {
     }
 
     #[test]
+    // 1 2 3 2 3 M
+    // 2 M M M 5 M
+    // 3 M 8 M 6 M
+    // 2 M M M 5 M
+    // 1 2 3 2 4 M
+    // 0 0 0 0 2 M
+    fn get_value_general_test() {
+        let width = 6;
+        let height = 6;
+        let mut mine_locations = HashSet::new();
+        mine_locations.insert((0, 5));
+        mine_locations.insert((1, 1));
+        mine_locations.insert((1, 2));
+        mine_locations.insert((1, 3));
+        mine_locations.insert((1, 5));
+        mine_locations.insert((2, 1));
+        mine_locations.insert((2, 3));
+        mine_locations.insert((2, 5));
+        mine_locations.insert((3, 1));
+        mine_locations.insert((3, 2));
+        mine_locations.insert((3, 3));
+        mine_locations.insert((3, 5));
+        mine_locations.insert((4, 5));
+        mine_locations.insert((5, 5));
+        let mut expected_values: HashSet<(usize, usize, u8)> = HashSet::new();
+        expected_values.insert((0, 0, 1));
+        expected_values.insert((0, 1, 2));
+        expected_values.insert((0, 2, 3));
+        expected_values.insert((0, 3, 2));
+        expected_values.insert((0, 4, 3));
+        expected_values.insert((1, 0, 2));
+        expected_values.insert((1, 4, 5));
+        expected_values.insert((2, 0, 3));
+        expected_values.insert((2, 2, 8));
+        expected_values.insert((2, 4, 6));
+        expected_values.insert((3, 0, 2));
+        expected_values.insert((3, 4, 5));
+        expected_values.insert((4, 0, 1));
+        expected_values.insert((4, 1, 2));
+        expected_values.insert((4, 2, 3));
+        expected_values.insert((4, 3, 2));
+        expected_values.insert((4, 4, 4));
+        expected_values.insert((5, 0, 0));
+        expected_values.insert((5, 1, 0));
+        expected_values.insert((5, 2, 0));
+        expected_values.insert((5, 3, 0));
+        expected_values.insert((5, 4, 2));
+        for (row, col, expected_value) in expected_values.iter() {
+            assert_eq!(
+                expected_value,
+                &get_field_value(width, height, *row, *col, &mine_locations).unwrap()
+            )
+        }
+    }
+
+    #[test]
     fn create_game_with_invalid_sizes() {
         check_invalid_size_error(Table::with_custom_mines(
             usize::MAX,
