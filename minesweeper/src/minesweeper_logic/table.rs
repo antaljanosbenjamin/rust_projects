@@ -883,5 +883,16 @@ mod test {
         }
     }
 
+    #[test]
+    fn first_open_is_always_successful() {
+        let table_size = 30;
+        for test_index in 1..10 {
+            let mut table =
+                Table::new(table_size, table_size, table_size * table_size - 1).unwrap();
+            let open_info = table.open_field(test_index, test_index * 2).unwrap();
+            assert_eq!(OpenResult::WINNER, open_info.result);
+        }
+    }
+
     // TODO Write test to full game
 }
