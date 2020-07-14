@@ -1,7 +1,7 @@
 use strum_macros::Display;
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Display, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Display, Debug)]
 pub enum FieldType {
     Empty,
     Numbered(u8),
