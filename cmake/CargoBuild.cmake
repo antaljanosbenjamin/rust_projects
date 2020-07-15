@@ -1,11 +1,26 @@
+include(CMakeParseArguments)
+
 function(cargo_build_library LIB_NAME)
+  cmake_parse_arguments(
+    PARSED_ARGS
+    "WITH_TESTS"
+    ""
+    ""
+    ${ARGN}
+  )
+
+  # if(NOT PARSED_ARGS_LIB_NAME) message(FATAL_ERROR "The name of library must be specified!")
+  # endif()
+
+  # set(LIB_NAME ${PARSED_ARGS_LIB_NAME})
+  set(WITH_TESTS ${PARSED_ARGS_WITH_TESTS})
   set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
   # the OUTPUT parameter of add_custom_command doesn't support generator expressions, so we have to
   # use if-else
 
   set(IS_64 CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(CARGO_ARGS build --target-dir ${CARGO_TARGET_DIR})
+  set(CARGO_ARGS --target-dir ${CARGO_TARGET_DIR})
   if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CARGO_BUILD_TYPE release)
     set(CARGO_ARGS ${CARGO_ARGS} --release)
@@ -70,7 +85,7 @@ function(cargo_build_library LIB_NAME)
 
   add_custom_command(
     OUTPUT ${LIB_FILES}
-    COMMAND ${CARGO_ENV_COMMAND} cargo ARGS ${CARGO_ARGS}
+    COMMAND ${CARGO_ENV_COMMAND} cargo ARGS build ${CARGO_ARGS}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DEPENDS ${LIB_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml
     COMMENT "running cargo for ${LIB_NAME} creating (${LIB_FILES})..."
@@ -113,5 +128,9 @@ function(cargo_build_library LIB_NAME)
     target_link_libraries(${LIB_NAME} INTERFACE ${LIB_NAME}_shared)
   else()
     target_link_libraries(${LIB_NAME} INTERFACE ${LIB_NAME}_static)
+  endif()
+
+  if(WITH_TESTS AND BUILD_TESTING)
+    add_test(NAME ${LIB_NAME}_tests COMMAND cargo test ${CARGO_ARGS})
   endif()
 endfunction()
