@@ -141,7 +141,9 @@ function(cargo_add_library LIB_NAME LIB_SOURCES)
 
   if(WITH_TESTS AND BUILD_TESTING)
     message(STATUS "Adding tests for ${LIB_NAME} library")
-    add_test(NAME ${LIB_NAME}_tests COMMAND cargo test ${CARGO_ARGS})
+    add_test(NAME ${LIB_NAME}_tests COMMAND cargo test ${CARGO_ARGS}
+             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
   endif()
 endfunction()
 
@@ -191,7 +193,9 @@ function(
 
   if(WITH_TESTS AND BUILD_TESTING)
     message(STATUS "Adding tests for ${TARGET_NAME_AND_TYPE}")
-    add_test(NAME ${TARGET_NAME}_tests COMMAND cargo test ${CARGO_ARGS})
+    add_test(NAME ${TARGET_NAME}_tests COMMAND cargo test ${CARGO_ARGS}
+             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
   endif()
 endfunction()
 
