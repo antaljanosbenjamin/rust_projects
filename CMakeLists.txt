@@ -6,4 +6,6 @@ enable_testing()
 
 include(cmake/CargoBuild.cmake)
 
+add_subdirectory(monty-hall)
+add_subdirectory(minesweeper)
 add_subdirectory(cminesweeper)
