@@ -1,18 +1,7 @@
 include(CMakeParseArguments)
 
-function(cargo_build_library LIB_NAME)
-  cmake_parse_arguments(
-    PARSED_ARGS
-    "WITH_TESTS"
-    ""
-    ""
-    ${ARGN}
-  )
+function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT)
 
-  # if(NOT PARSED_ARGS_LIB_NAME) message(FATAL_ERROR "The name of library must be specified!")
-  # endif()
-
-  # set(LIB_NAME ${PARSED_ARGS_LIB_NAME})
   set(WITH_TESTS ${PARSED_ARGS_WITH_TESTS})
   set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -59,15 +48,35 @@ function(cargo_build_library LIB_NAME)
 
   set(CARGO_ARGS ${CARGO_ARGS} --target ${CARGO_TARGET_TRIPLE})
 
-  set(LIB_DIR ${CARGO_TARGET_DIR}/${CARGO_TARGET_TRIPLE}/${CARGO_BUILD_TYPE})
+  set(${CARGO_ARGS_OUT} ${CARGO_ARGS} PARENT_SCOPE)
+  set(${CARGO_RESULT_DIR_OUT} ${CARGO_TARGET_DIR}/${CARGO_TARGET_TRIPLE}/${CARGO_BUILD_TYPE}
+      PARENT_SCOPE
+  )
+endfunction()
+
+function(cargo_add_library LIB_NAME LIB_SOURCES)
+  string(REPLACE ";" ", " LIB_SOURCES_WITH_SPACES "${LIB_SOURCES}")
+  message(STATUS "Adding ${LIB_NAME} library with sources: \"${LIB_SOURCES_WITH_SPACES}\"")
+  cmake_parse_arguments(
+    PARSED_ARGS
+    "WITH_TESTS"
+    ""
+    ""
+    ${ARGN}
+  )
+  set(WITH_TESTS ${PARSED_ARGS_WITH_TESTS})
+
+  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR)
+
   set(STATIC_LIB_FILE
-      ${LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}
+      ${CARGO_RESULT_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}
   )
   set(SHARED_LIB_SONAME ${CMAKE_SHARED_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
-  set(SHARED_LIB_FILE ${LIB_DIR}/${SHARED_LIB_SONAME})
+  set(SHARED_LIB_FILE ${CARGO_RESULT_DIR}/${SHARED_LIB_SONAME})
   set(LIB_FILES ${STATIC_LIB_FILE} ${SHARED_LIB_FILE})
 
-  file(GLOB_RECURSE LIB_SOURCES "*.rs")
+  message(STATUS "The produced shared library is going to be ${SHARED_LIB_FILE}")
+  message(STATUS "The produced static library is going to be ${STATIC_LIB_FILE}")
 
   if(UNIX)
     set(LINKER_SONAME_ARG_NAME soname)
@@ -87,8 +96,8 @@ function(cargo_build_library LIB_NAME)
     OUTPUT ${LIB_FILES}
     COMMAND ${CARGO_ENV_COMMAND} cargo ARGS build ${CARGO_ARGS}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    DEPENDS ${LIB_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml
-    COMMENT "running cargo for ${LIB_NAME} creating (${LIB_FILES})..."
+    DEPENDS "${LIB_SOURCES}"
+    COMMENT "running cargo for ${LIB_NAME} creating ${LIB_FILES}..."
   )
 
   set(LIB_COMMON_TARGET_NAME ${LIB_NAME}_target)
@@ -98,7 +107,7 @@ function(cargo_build_library LIB_NAME)
   add_library(${STATIC_LIB_TARGET_NAME} STATIC IMPORTED GLOBAL)
   add_dependencies(${STATIC_LIB_TARGET_NAME} ${LIB_COMMON_TARGET_NAME})
   set_target_properties(${STATIC_LIB_TARGET_NAME} PROPERTIES IMPORTED_LOCATION ${STATIC_LIB_FILE})
-  target_link_directories(${STATIC_LIB_TARGET_NAME} INTERFACE ${LIB_DIR})
+  target_link_directories(${STATIC_LIB_TARGET_NAME} INTERFACE ${CARGO_RESULT_DIR})
 
   if(WIN32)
     set_property(
@@ -131,6 +140,79 @@ function(cargo_build_library LIB_NAME)
   endif()
 
   if(WITH_TESTS AND BUILD_TESTING)
+    message(STATUS "Adding tests for ${LIB_NAME} library")
     add_test(NAME ${LIB_NAME}_tests COMMAND cargo test ${CARGO_ARGS})
   endif()
+endfunction()
+
+function(
+  _cargo_build_general
+  TARGET_NAME
+  TARGET_SOURCE_FILES
+  TARGET_TYPE
+  TARGET_SUFFIX
+  ADDITIONAL_CARGO_ARGS
+)
+  cmake_parse_arguments(
+    PARSED_ARGS
+    "WITH_TESTS"
+    ""
+    ""
+    ${ARGN}
+  )
+  set(WITH_TESTS ${PARSED_ARGS_WITH_TESTS})
+  string(REPLACE ";" ", " TARGET_SOURCE_FILES_WITH_SPACES "${TARGET_SOURCE_FILES}")
+  set(TARGET_NAME_AND_TYPE "${TARGET_NAME} ${TARGET_TYPE}")
+  message(
+    STATUS "Adding ${TARGET_NAME_AND_TYPE} with sources: \"${TARGET_SOURCE_FILES_WITH_SPACES}\""
+  )
+
+  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR)
+
+  if(${TARGET_TYPE} STREQUAL "executable")
+    set(TARGET_CHOOSER_ARGS --bin ${TARGET_NAME})
+  elseif(${TARGET_TYPE} STREQUAL "rust library")
+    set(TARGET_CHOOSER_ARGS --lib)
+  else()
+    message(FATAL_ERROR "Unsupported target type")
+  endif()
+
+  set(TARGET_FILE ${CARGO_RESULT_DIR}/${TARGET_NAME}${TARGET_SUFFIX})
+  message(STATUS "The produced file is going to be ${TARGET_FILE}")
+  add_custom_command(
+    OUTPUT ${TARGET_FILE}
+    COMMAND cargo ARGS build ${TARGET_CHOOSER_ARGS} ${ADDITIONAL_CARGO_ARGS} ${CARGO_ARGS}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    DEPENDS "${TARGET_SOURCE_FILES}"
+    COMMENT "running cargo for ${TARGET_NAME_AND_TYPE} creating ${TARGET_FILE}..."
+  )
+
+  add_custom_target(${EXE_NAME}_target ALL DEPENDS ${TARGET_FILE})
+
+  if(WITH_TESTS AND BUILD_TESTING)
+    message(STATUS "Adding tests for ${TARGET_NAME_AND_TYPE}")
+    add_test(NAME ${TARGET_NAME}_tests COMMAND cargo test ${CARGO_ARGS})
+  endif()
+endfunction()
+
+function(cargo_add_executable EXE_NAME EXE_SOURCES)
+  _cargo_build_general(
+    "${EXE_NAME}"
+    "${EXE_SOURCES}"
+    "executable"
+    "${CMAKE_EXECUTABLE_SUFFIX}"
+    ""
+    ${ARGN}
+  )
+endfunction()
+
+function(cargo_add_rust_library LIB_NAME LIB_SOURCES)
+  _cargo_build_general(
+    "${LIB_NAME}"
+    "${LIB_SOURCES}"
+    "rust library"
+    ".rlib"
+    ""
+    ${ARGN}
+  )
 endfunction()
