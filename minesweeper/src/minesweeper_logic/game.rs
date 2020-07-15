@@ -3,6 +3,8 @@ use super::table::Table;
 use hrsw::Stopwatch;
 use strum_macros::Display;
 
+static GAME_IS_ALREADY_STOPPED_ERROR: &'static str = "Invalid value!";
+
 #[repr(C)]
 #[allow(dead_code)]
 #[derive(Eq, PartialEq, Display, Debug)]
@@ -65,29 +67,40 @@ impl Game {
         self.state = GameState::Stopped { win };
     }
 
+    fn is_running(&self) -> bool {
+        self.state == GameState::Started
+    }
+
     pub fn open(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
         self.start_game_if_needed();
-        let open_info = self.table.open_field(row, col)?;
 
-        match open_info.result {
-            OpenResult::WINNER => {
-                self.state = GameState::Stopped { win: true };
-                self.stop_game(true);
-            }
-            OpenResult::Boom => {
-                self.state = GameState::Stopped { win: false };
-                self.stop_game(false);
-            }
-            _ => (),
-        };
+        if self.is_running() {
+            let open_info = self.table.open_field(row, col)?;
+            match open_info.result {
+                OpenResult::WINNER => {
+                    self.state = GameState::Stopped { win: true };
+                    self.stop_game(true);
+                }
+                OpenResult::Boom => {
+                    self.state = GameState::Stopped { win: false };
+                    self.stop_game(false);
+                }
+                _ => (),
+            };
 
-        Ok(open_info)
+            Ok(open_info)
+        } else {
+            Err(GAME_IS_ALREADY_STOPPED_ERROR)
+        }
     }
 
     #[allow(dead_code)]
     pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
-        self.start_game_if_needed();
-        self.table.toggle_flag(row, col)
+        if self.is_running() {
+            self.table.toggle_flag(row, col)
+        } else {
+            Err(GAME_IS_ALREADY_STOPPED_ERROR)
+        }
     }
 
     pub fn get_width(&self) -> usize {
