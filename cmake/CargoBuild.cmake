@@ -1,15 +1,38 @@
 include(CMakeParseArguments)
 
-function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT)
+function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT WITH_TESTS_OUT)
+  cmake_parse_arguments(
+    PARSED_ARGS
+    "WITH_TESTS"
+    "MANIFEST_PATH"
+    ""
+    ${ARGN}
+  )
+  if(NOT PARSED_ARGS_MANIFEST_PATH)
+    get_filename_component(MANIFEST_ABSOLUTE_PATH Cargo.toml ABSOLUTE)
+    if(NOT EXISTS "${MANIFEST_ABSOLUTE_PATH}")
+      message(
+        FATAL_ERROR
+          "Cargo.toml cannot be found in the current source directory, please specify its path by MANIFEST_PATH argument!"
+      )
+    endif()
+  else()
+    get_filename_component(MANIFEST_ABSOLUTE_PATH ${PARSED_ARGS_MANIFEST_PATH} ABSOLUTE)
+    if(NOT EXISTS "${MANIFEST_ABSOLUTE_PATH}")
+      message(
+        FATAL_ERROR
+          "${PARSED_ARGS_MANIFEST_PATH} cannot be found!"
+      )
+    endif()
+  endif()
 
-  set(WITH_TESTS ${PARSED_ARGS_WITH_TESTS})
   set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
   # the OUTPUT parameter of add_custom_command doesn't support generator expressions, so we have to
   # use if-else
 
   set(IS_64 CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(CARGO_ARGS --target-dir ${CARGO_TARGET_DIR})
+  set(CARGO_ARGS --manifest-path ${MANIFEST_ABSOLUTE_PATH} --target-dir ${CARGO_TARGET_DIR})
   if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CARGO_BUILD_TYPE release)
     set(CARGO_ARGS ${CARGO_ARGS} --release)
@@ -52,22 +75,17 @@ function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT)
   set(${CARGO_RESULT_DIR_OUT} ${CARGO_TARGET_DIR}/${CARGO_TARGET_TRIPLE}/${CARGO_BUILD_TYPE}
       PARENT_SCOPE
   )
+  set(${WITH_TESTS_OUT} ${PARSED_ARGS_WITH_TESTS} PARENT_SCOPE)
 endfunction()
 
-function(cargo_add_library LIB_NAME LIB_SOURCES)
-  string(REPLACE ";" ", " LIB_SOURCES_WITH_SPACES "${LIB_SOURCES}")
-  message(STATUS "Adding ${LIB_NAME} library with sources: \"${LIB_SOURCES_WITH_SPACES}\"")
-  cmake_parse_arguments(
-    PARSED_ARGS
-    "WITH_TESTS"
-    ""
-    ""
-    ${ARGN}
+function(cargo_add_library LIB_NAME)
+  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR WITH_TESTS ${ARGN})
+
+  set(TYPE "library")
+  set(LIB_NAME_AND_TYPE "${LIB_NAME} ${TYPE}")
+  message(
+    STATUS "Adding ${LIB_NAME_AND_TYPE}"
   )
-  set(WITH_TESTS ${PARSED_ARGS_WITH_TESTS})
-
-  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR)
-
   set(STATIC_LIB_FILE
       ${CARGO_RESULT_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}
   )
@@ -75,8 +93,8 @@ function(cargo_add_library LIB_NAME LIB_SOURCES)
   set(SHARED_LIB_FILE ${CARGO_RESULT_DIR}/${SHARED_LIB_SONAME})
   set(LIB_FILES ${STATIC_LIB_FILE} ${SHARED_LIB_FILE})
 
-  message(STATUS "The produced shared library is going to be ${SHARED_LIB_FILE}")
-  message(STATUS "The produced static library is going to be ${STATIC_LIB_FILE}")
+  message(STATUS "The produced shared ${TYPE} is going to be ${SHARED_LIB_FILE}")
+  message(STATUS "The produced static ${TYPE} is going to be ${STATIC_LIB_FILE}")
 
   if(UNIX)
     set(LINKER_SONAME_ARG_NAME soname)
@@ -95,9 +113,8 @@ function(cargo_add_library LIB_NAME LIB_SOURCES)
   add_custom_command(
     OUTPUT ${LIB_FILES}
     COMMAND ${CARGO_ENV_COMMAND} cargo ARGS build ${CARGO_ARGS}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DEPENDS "${LIB_SOURCES}"
-    COMMENT "running cargo for ${LIB_NAME} creating ${LIB_FILES}..."
+    COMMENT "running cargo for ${LIB_NAME_AND_TYPE} creating ${LIB_FILES}..."
   )
 
   set(LIB_COMMON_TARGET_NAME ${LIB_NAME}_target)
@@ -142,7 +159,6 @@ function(cargo_add_library LIB_NAME LIB_SOURCES)
   if(WITH_TESTS AND BUILD_TESTING)
     message(STATUS "Adding tests for ${LIB_NAME} library")
     add_test(NAME ${LIB_NAME}_tests COMMAND cargo test ${CARGO_ARGS}
-             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
   endif()
 endfunction()
@@ -150,26 +166,16 @@ endfunction()
 function(
   _cargo_build_general
   TARGET_NAME
-  TARGET_SOURCE_FILES
   TARGET_TYPE
   TARGET_SUFFIX
   ADDITIONAL_CARGO_ARGS
 )
-  cmake_parse_arguments(
-    PARSED_ARGS
-    "WITH_TESTS"
-    ""
-    ""
-    ${ARGN}
-  )
-  set(WITH_TESTS ${PARSED_ARGS_WITH_TESTS})
-  string(REPLACE ";" ", " TARGET_SOURCE_FILES_WITH_SPACES "${TARGET_SOURCE_FILES}")
   set(TARGET_NAME_AND_TYPE "${TARGET_NAME} ${TARGET_TYPE}")
   message(
-    STATUS "Adding ${TARGET_NAME_AND_TYPE} with sources: \"${TARGET_SOURCE_FILES_WITH_SPACES}\""
+    STATUS "Adding ${TARGET_NAME_AND_TYPE}"
   )
 
-  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR)
+  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR WITH_TESTS ${ARGN})
 
   if(${TARGET_TYPE} STREQUAL "executable")
     set(TARGET_CHOOSER_ARGS --bin ${TARGET_NAME})
@@ -184,12 +190,10 @@ function(
   add_custom_command(
     OUTPUT ${TARGET_FILE}
     COMMAND cargo ARGS build ${TARGET_CHOOSER_ARGS} ${ADDITIONAL_CARGO_ARGS} ${CARGO_ARGS}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    DEPENDS "${TARGET_SOURCE_FILES}"
     COMMENT "running cargo for ${TARGET_NAME_AND_TYPE} creating ${TARGET_FILE}..."
   )
 
-  add_custom_target(${EXE_NAME}_target ALL DEPENDS ${TARGET_FILE})
+  add_custom_target(${TARGET_NAME}_target ALL DEPENDS ${TARGET_FILE})
 
   if(WITH_TESTS AND BUILD_TESTING)
     message(STATUS "Adding tests for ${TARGET_NAME_AND_TYPE}")
@@ -199,10 +203,9 @@ function(
   endif()
 endfunction()
 
-function(cargo_add_executable EXE_NAME EXE_SOURCES)
+function(cargo_add_executable EXE_NAME)
   _cargo_build_general(
     "${EXE_NAME}"
-    "${EXE_SOURCES}"
     "executable"
     "${CMAKE_EXECUTABLE_SUFFIX}"
     ""
@@ -213,7 +216,6 @@ endfunction()
 function(cargo_add_rust_library LIB_NAME LIB_SOURCES)
   _cargo_build_general(
     "${LIB_NAME}"
-    "${LIB_SOURCES}"
     "rust library"
     ".rlib"
     ""
