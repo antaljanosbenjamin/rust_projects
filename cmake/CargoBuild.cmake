@@ -1,13 +1,41 @@
 include(CMakeParseArguments)
 
-function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT WITH_TESTS_OUT)
+# +++++++++++++++++++++++++++
+# _print_adding_message
+# +++++++++++++++++++++++++++
+function(_print_adding_message TARGET_NAME_AND_TYPE TARGET_SOURCE_FILES)
+  set(MESSAGE_STR "Adding ${TARGET_NAME_AND_TYPE} with sources:")
+  foreach(TARGET_SOURCE_FILE ${ARGN})
+    set(MESSAGE_STR "${MESSAGE_STR}\n\t${TARGET_SOURCE_FILE}")
+  endforeach()
+  message(STATUS ${MESSAGE_STR})
+endfunction()
+
+# +++++++++++++++++++++++++++
+# _print_adding_message
+# +++++++++++++++++++++++++++
+function(_print_produced_file FILE_TYPE FILE_PATH)
+  message(STATUS "The produced ${FILE_TYPE} is going to be ${FILE_PATH}")
+endfunction()
+
+# +++++++++++++++++++++++++++
+# _setup_cargo_variables
+# +++++++++++++++++++++++++++
+function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT WITH_TESTS_OUT FOLDER_OUT TARGET_SOURCE_FILES_OUT)
   cmake_parse_arguments(
     PARSED_ARGS
     "WITH_TESTS"
-    "MANIFEST_PATH"
+    "MANIFEST_PATH;FOLDER"
     ""
     ${ARGN}
   )
+
+  foreach(TARGET_SOURCE_FILE ${PARSED_ARGS_UNPARSED_ARGUMENTS})
+    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_SOURCE_FILE})
+      message(FATAL_ERROR "Cannot find source file: ${TARGET_SOURCE_FILE}")
+    endif()
+  endforeach()
+
   if(NOT PARSED_ARGS_MANIFEST_PATH)
     get_filename_component(MANIFEST_ABSOLUTE_PATH Cargo.toml ABSOLUTE)
     if(NOT EXISTS "${MANIFEST_ABSOLUTE_PATH}")
@@ -76,16 +104,22 @@ function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT WITH_TESTS_O
       PARENT_SCOPE
   )
   set(${WITH_TESTS_OUT} ${PARSED_ARGS_WITH_TESTS} PARENT_SCOPE)
+  if (PARSED_ARGS_FOLDER)
+    set(${FOLDER_OUT} ${PARSED_ARGS_FOLDER} PARENT_SCOPE)
+  endif()
+  set(${TARGET_SOURCE_FILES_OUT} ${PARSED_ARGS_UNPARSED_ARGUMENTS} PARENT_SCOPE)
 endfunction()
 
+# +++++++++++++++++++++++++++
+# cargo_add_library
+# +++++++++++++++++++++++++++
 function(cargo_add_library LIB_NAME)
-  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR WITH_TESTS ${ARGN})
+  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR WITH_TESTS FOLDER LIB_SOURCE_FILES ${ARGN})
 
   set(TYPE "library")
   set(LIB_NAME_AND_TYPE "${LIB_NAME} ${TYPE}")
-  message(
-    STATUS "Adding ${LIB_NAME_AND_TYPE}"
-  )
+  _print_adding_message(${LIB_NAME_AND_TYPE} ${LIB_SOURCE_FILES})
+
   set(STATIC_LIB_FILE
       ${CARGO_RESULT_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}
   )
@@ -93,8 +127,8 @@ function(cargo_add_library LIB_NAME)
   set(SHARED_LIB_FILE ${CARGO_RESULT_DIR}/${SHARED_LIB_SONAME})
   set(LIB_FILES ${STATIC_LIB_FILE} ${SHARED_LIB_FILE})
 
-  message(STATUS "The produced shared ${TYPE} is going to be ${SHARED_LIB_FILE}")
-  message(STATUS "The produced static ${TYPE} is going to be ${STATIC_LIB_FILE}")
+  _print_produced_file("shared ${TYPE}" ${SHARED_LIB_FILE})
+  _print_produced_file("static ${TYPE}" ${STATIC_LIB_FILE})
 
   if(UNIX)
     set(LINKER_SONAME_ARG_NAME soname)
@@ -113,7 +147,7 @@ function(cargo_add_library LIB_NAME)
   add_custom_command(
     OUTPUT ${LIB_FILES}
     COMMAND ${CARGO_ENV_COMMAND} cargo ARGS build ${CARGO_ARGS}
-    DEPENDS "${LIB_SOURCES}"
+    DEPENDS ${LIB_SOURCE_FILES}
     COMMENT "running cargo for ${LIB_NAME_AND_TYPE} creating ${LIB_FILES}..."
   )
 
@@ -156,13 +190,21 @@ function(cargo_add_library LIB_NAME)
     target_link_libraries(${LIB_NAME} INTERFACE ${LIB_NAME}_static)
   endif()
 
-  if(WITH_TESTS AND BUILD_TESTING)
+  if(${WITH_TESTS} AND BUILD_TESTING)
     message(STATUS "Adding tests for ${LIB_NAME} library")
-    add_test(NAME ${LIB_NAME}_tests COMMAND cargo test ${CARGO_ARGS}
-    )
+    set(TESTS_TARGET_NAME ${LIB_NAME}_tests)
+    add_test(NAME ${TESTS_TARGET_NAME} COMMAND cargo test ${CARGO_ARGS})
+  endif()
+
+  if(FOLDER)
+    message(STATUS "Setting FOLDER property for target ${LIB_COMMON_TARGET_NAME} to ${FOLDER}")
+    set_target_properties(${LIB_COMMON_TARGET_NAME} PROPERTIES FOLDER ${FOLDER})
   endif()
 endfunction()
 
+# +++++++++++++++++++++++++++
+# _cargo_build_general
+# +++++++++++++++++++++++++++
 function(
   _cargo_build_general
   TARGET_NAME
@@ -171,53 +213,67 @@ function(
   ADDITIONAL_CARGO_ARGS
 )
   set(TARGET_NAME_AND_TYPE "${TARGET_NAME} ${TARGET_TYPE}")
-  message(
-    STATUS "Adding ${TARGET_NAME_AND_TYPE}"
-  )
 
-  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR WITH_TESTS ${ARGN})
+  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR WITH_TESTS FOLDER TARGET_SOURCE_FILES ${ARGN})
+  
+  _print_adding_message(${TARGET_NAME_AND_TYPE} ${TARGET_SOURCE_FILES})
 
   if(${TARGET_TYPE} STREQUAL "executable")
     set(TARGET_CHOOSER_ARGS --bin ${TARGET_NAME})
+    set(TARGET_FILE_PREFIX "")
   elseif(${TARGET_TYPE} STREQUAL "rust library")
     set(TARGET_CHOOSER_ARGS --lib)
+    set(TARGET_FILE_PREFIX lib)
   else()
-    message(FATAL_ERROR "Unsupported target type")
+    message(FATAL_ERROR "Unsupported target type ${TARGET_TYPE}")
   endif()
 
-  set(TARGET_FILE ${CARGO_RESULT_DIR}/${TARGET_NAME}${TARGET_SUFFIX})
-  message(STATUS "The produced file is going to be ${TARGET_FILE}")
+  set(TARGET_FILE ${CARGO_RESULT_DIR}/${TARGET_FILE_PREFIX}${TARGET_NAME}${TARGET_SUFFIX})
+  _print_produced_file(${TARGET_TYPE} ${TARGET_FILE})
   add_custom_command(
     OUTPUT ${TARGET_FILE}
     COMMAND cargo ARGS build ${TARGET_CHOOSER_ARGS} ${ADDITIONAL_CARGO_ARGS} ${CARGO_ARGS}
+    DEPENDS ${TARGET_SOURCE_FILES}
     COMMENT "running cargo for ${TARGET_NAME_AND_TYPE} creating ${TARGET_FILE}..."
   )
 
   add_custom_target(${TARGET_NAME}_target ALL DEPENDS ${TARGET_FILE})
 
-  if(WITH_TESTS AND BUILD_TESTING)
+  if(${WITH_TESTS} AND BUILD_TESTING)
     message(STATUS "Adding tests for ${TARGET_NAME_AND_TYPE}")
     add_test(NAME ${TARGET_NAME}_tests COMMAND cargo test ${CARGO_ARGS}
              WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
   endif()
+  
+  message(STATUS "Setting FOLDER property for target ${TARGET_NAME} to ${FOLDER}")
+  if(FOLDER)
+    message(STATUS "Setting FOLDER property for target ${TARGET_NAME} to ${FOLDER}")
+    set_target_properties(${TARGET_NAME}_target PROPERTIES FOLDER ${FOLDER})
+  endif()
 endfunction()
 
+# +++++++++++++++++++++++++++
+# cargo_add_executable
+# +++++++++++++++++++++++++++
 function(cargo_add_executable EXE_NAME)
   _cargo_build_general(
-    "${EXE_NAME}"
-    "executable"
-    "${CMAKE_EXECUTABLE_SUFFIX}"
+    ${EXE_NAME}
+    executable
+    ${CMAKE_EXECUTABLE_SUFFIX}
     ""
     ${ARGN}
   )
 endfunction()
 
-function(cargo_add_rust_library LIB_NAME LIB_SOURCES)
+# +++++++++++++++++++++++++++
+# cargo_add_rust_library
+# +++++++++++++++++++++++++++
+function(cargo_add_rust_library LIB_NAME)
   _cargo_build_general(
-    "${LIB_NAME}"
+    ${LIB_NAME}
     "rust library"
-    ".rlib"
+    .rlib
     ""
     ${ARGN}
   )
