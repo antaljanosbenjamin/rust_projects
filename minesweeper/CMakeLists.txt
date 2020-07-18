@@ -10,24 +10,24 @@ set(MINESWEEPER_SOURCES
 
 cargo_add_rust_library(
   minesweeper
-  ${MINESWEEPER_SOURCES}
   MANIFEST_PATH
   Cargo.toml
   WITH_TESTS
   FOLDER
   minesweeper
+  ${MINESWEEPER_SOURCES}
 )
 
 set(MINESWEEPER_DEMO_SOURCES ${MINESWEEPER_SOURCES} src/main.rs)
 
 cargo_add_executable(
   minesweeper_demo
-  ${MINESWEEPER_DEMO_SOURCES}
   MANIFEST_PATH
   Cargo.toml
   WITH_TESTS
   FOLDER
   minesweeper
+  ${MINESWEEPER_DEMO_SOURCES}
 )
 
 set(CMINESWEEPER_SOURCES ${MINESWEEPER_SOURCES} ../cminesweeper/src/lib.rs
@@ -36,10 +36,10 @@ set(CMINESWEEPER_SOURCES ${MINESWEEPER_SOURCES} ../cminesweeper/src/lib.rs
 
 cargo_add_library(
   cminesweeper
-  ${CMINESWEEPER_SOURCES}
   MANIFEST_PATH
   ../cminesweeper/Cargo.toml
   WITH_TESTS
   FOLDER
   minesweeper
+  ${CMINESWEEPER_SOURCES}
 )
