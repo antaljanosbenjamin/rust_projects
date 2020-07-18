@@ -21,7 +21,14 @@ endfunction()
 # +++++++++++++++++++++++++++
 # _setup_cargo_variables
 # +++++++++++++++++++++++++++
-function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT WITH_TESTS_OUT FOLDER_OUT TARGET_SOURCE_FILES_OUT)
+function(
+  _setup_cargo_variables
+  CARGO_ARGS_OUT
+  CARGO_RESULT_DIR_OUT
+  WITH_TESTS_OUT
+  FOLDER_OUT
+  TARGET_SOURCE_FILES_OUT
+)
   cmake_parse_arguments(
     PARSED_ARGS
     "WITH_TESTS"
@@ -31,26 +38,25 @@ function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT WITH_TESTS_O
   )
 
   foreach(TARGET_SOURCE_FILE ${PARSED_ARGS_UNPARSED_ARGUMENTS})
-    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_SOURCE_FILE})
-      message(FATAL_ERROR "Cannot find source file: ${TARGET_SOURCE_FILE}")
+    if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_SOURCE_FILE})
+      message(FATAL_ERROR "Cannot find source file:
+  ${TARGET_SOURCE_FILE}"
+      )
     endif()
   endforeach()
 
   if(NOT PARSED_ARGS_MANIFEST_PATH)
     get_filename_component(MANIFEST_ABSOLUTE_PATH Cargo.toml ABSOLUTE)
     if(NOT EXISTS "${MANIFEST_ABSOLUTE_PATH}")
-      message(
-        FATAL_ERROR
-          "Cargo.toml cannot be found in the current source directory, please specify its path by MANIFEST_PATH argument!"
-      )
+      # This is just a workaround because otherwise cmake-formatter fails to format
+      set(ERROR_MESSAGE "Cargo.toml cannot be found in the current source directory!")
+      set(ERROR_MESSAGE "${ERROR_MESSAGE} Please specify its path by MANIFEST_PATH argument!")
+      message(FATAL_ERROR ${ERROR_MESSAGE})
     endif()
   else()
     get_filename_component(MANIFEST_ABSOLUTE_PATH ${PARSED_ARGS_MANIFEST_PATH} ABSOLUTE)
     if(NOT EXISTS "${MANIFEST_ABSOLUTE_PATH}")
-      message(
-        FATAL_ERROR
-          "${PARSED_ARGS_MANIFEST_PATH} cannot be found!"
-      )
+      message(FATAL_ERROR "${PARSED_ARGS_MANIFEST_PATH} cannot be found!")
     endif()
   endif()
 
@@ -104,7 +110,7 @@ function(_setup_cargo_variables CARGO_ARGS_OUT CARGO_RESULT_DIR_OUT WITH_TESTS_O
       PARENT_SCOPE
   )
   set(${WITH_TESTS_OUT} ${PARSED_ARGS_WITH_TESTS} PARENT_SCOPE)
-  if (PARSED_ARGS_FOLDER)
+  if(PARSED_ARGS_FOLDER)
     set(${FOLDER_OUT} ${PARSED_ARGS_FOLDER} PARENT_SCOPE)
   endif()
   set(${TARGET_SOURCE_FILES_OUT} ${PARSED_ARGS_UNPARSED_ARGUMENTS} PARENT_SCOPE)
@@ -114,7 +120,14 @@ endfunction()
 # cargo_add_library
 # +++++++++++++++++++++++++++
 function(cargo_add_library LIB_NAME)
-  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR WITH_TESTS FOLDER LIB_SOURCE_FILES ${ARGN})
+  _setup_cargo_variables(
+    CARGO_ARGS
+    CARGO_RESULT_DIR
+    WITH_TESTS
+    FOLDER
+    LIB_SOURCE_FILES
+    ${ARGN}
+  )
 
   set(TYPE "library")
   set(LIB_NAME_AND_TYPE "${LIB_NAME} ${TYPE}")
@@ -214,8 +227,15 @@ function(
 )
   set(TARGET_NAME_AND_TYPE "${TARGET_NAME} ${TARGET_TYPE}")
 
-  _setup_cargo_variables(CARGO_ARGS CARGO_RESULT_DIR WITH_TESTS FOLDER TARGET_SOURCE_FILES ${ARGN})
-  
+  _setup_cargo_variables(
+    CARGO_ARGS
+    CARGO_RESULT_DIR
+    WITH_TESTS
+    FOLDER
+    TARGET_SOURCE_FILES
+    ${ARGN}
+  )
+
   _print_adding_message(${TARGET_NAME_AND_TYPE} ${TARGET_SOURCE_FILES})
 
   if(${TARGET_TYPE} STREQUAL "executable")
@@ -245,7 +265,7 @@ function(
              WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
   endif()
-  
+
   message(STATUS "Setting FOLDER property for target ${TARGET_NAME} to ${FOLDER}")
   if(FOLDER)
     message(STATUS "Setting FOLDER property for target ${TARGET_NAME} to ${FOLDER}")
@@ -260,7 +280,8 @@ function(cargo_add_executable EXE_NAME)
   _cargo_build_general(
     ${EXE_NAME}
     executable
-    "${CMAKE_EXECUTABLE_SUFFIX}" # the quotes are necessary, otherwise on linux it would evaluate to "none", which mess up the arguments
+    "${CMAKE_EXECUTABLE_SUFFIX}" # the quotes are necessary, otherwise on linux it would evaluate to
+                                 # "none", which mess up the arguments
     ""
     ${ARGN}
   )
