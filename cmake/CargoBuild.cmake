@@ -260,7 +260,7 @@ function(cargo_add_executable EXE_NAME)
   _cargo_build_general(
     ${EXE_NAME}
     executable
-    ${CMAKE_EXECUTABLE_SUFFIX}
+    "${CMAKE_EXECUTABLE_SUFFIX}" # the quotes are necessary, otherwise on linux it would evaluate to "none", which mess up the arguments
     ""
     ${ARGN}
   )
