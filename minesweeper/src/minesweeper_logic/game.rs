@@ -1,6 +1,7 @@
 use super::results::{FieldFlagResult, OpenInfo, OpenResult};
 use super::table::Table;
 use hrsw::Stopwatch;
+use std::time::Duration;
 use strum_macros::Display;
 
 static GAME_IS_ALREADY_STOPPED_ERROR: &'static str = "Invalid value!";
@@ -109,16 +110,34 @@ impl Game {
     pub fn get_height(&self) -> usize {
         self.height
     }
+
+    pub fn get_elapsed(&self) -> Duration {
+        self.stopwatch.elapsed()
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::thread;
+    use std::time::Instant;
 
     fn check_game_is_already_stopped_error<T>(result: Result<T, &'static str>) {
         assert!(result.is_err());
         assert_eq!(GAME_IS_ALREADY_STOPPED_ERROR, result.err().unwrap());
     }
+
+    fn check_close_to(expected_value: f64, value: f64, tolerance: f64) {
+        let absolute_tolerance = expected_value * tolerance;
+        if expected_value >= 0.0 {
+            assert!(expected_value - absolute_tolerance < value);
+            assert!(expected_value + absolute_tolerance > value);
+        } else {
+            assert!(expected_value - absolute_tolerance > value);
+            assert!(expected_value + absolute_tolerance < value);
+        }
+    }
+
     #[test]
     fn game_sizes() {
         let test_cases = vec![
@@ -194,5 +213,51 @@ mod test {
             FieldFlagResult::FlagRemoved,
             game.toggle_flag(height - 1, width - 1).unwrap()
         );
+    }
+
+    #[test]
+    fn elapsed() {
+        let mut game = Game::new(GameLevel::Beginner);
+        let first_elapsed = game.get_elapsed();
+        assert_eq!(0, first_elapsed.as_nanos());
+        let second_elapsed = game.get_elapsed();
+        assert_eq!(0, second_elapsed.as_nanos());
+        let start_time = Instant::now();
+        game.open(0, 0).unwrap();
+        thread::sleep(Duration::from_secs(1));
+        let approximately_1_sec_in_nanos = game.get_elapsed().as_nanos() as f64;
+        let mut end_time: Option<Instant> = None;
+        for row in 0..game.get_height() {
+            for col in 0..game.get_width() {
+                match game.open(row, col) {
+                    Ok(result) => {
+                        if result.result == OpenResult::Boom || result.result == OpenResult::WINNER
+                        {
+                            end_time = Some(Instant::now());
+                            break;
+                        }
+                    }
+                    Err(_) => (),
+                }
+            }
+            if end_time.is_some() {
+                break;
+            }
+        }
+
+        let one_sec_in_nanos = Duration::from_secs(1).as_nanos() as f64;
+        check_close_to(one_sec_in_nanos, approximately_1_sec_in_nanos, 0.1);
+
+        let expected_game_time = end_time.unwrap() - start_time;
+        let actual_game_time = game.get_elapsed();
+
+        check_close_to(
+            expected_game_time.as_nanos() as f64,
+            actual_game_time.as_nanos() as f64,
+            0.1,
+        );
+        thread::sleep(Duration::from_secs_f32(0.5));
+
+        assert_eq!(actual_game_time, game.get_elapsed());
     }
 }
