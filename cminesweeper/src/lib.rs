@@ -181,6 +181,10 @@ pub extern "C" fn minesweeper_game_open(
     if c_open_info.field_infos_max_length == 0 {
         return_error!(c_ei_ptr, CError::InsufficientBuffer);
     }
+    if c_open_info.field_infos_ptr.is_null() {
+        return_error!(c_ei_ptr, CError::NullPointerAsInput);
+    }
+
     let game = unsafe { &mut *game_ptr };
     let open_info = return_or_assign!(game.open(urow, ucolumn), c_ei_ptr);
 
