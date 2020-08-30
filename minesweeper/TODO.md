@@ -9,3 +9,4 @@
 * ~~Rewrite mine moving logic to change only field type, but not the state~~
 * Rewrite FieldVisiter as Iterator if possible
 * ~~Create different methods for create mines and other fields~~
+* Convert the static str errors into errorcode + static str
