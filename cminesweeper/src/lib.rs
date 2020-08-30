@@ -2,11 +2,13 @@ use libc::c_char;
 use minesweeper::{FieldFlagResult, FieldType, Game, GameLevel, OpenResult};
 use std::cmp;
 use std::convert::TryFrom;
+use std::ffi::CStr;
 use std::ptr;
 use std::slice;
-use std::time::Duration;
+use strum_macros::Display;
 
 #[repr(C)]
+#[derive(Eq, PartialEq, Display, Debug)]
 pub enum CError {
     Ok,
     InvalidInput,
@@ -292,4 +294,333 @@ pub extern "C" fn minesweeper_game_get_elapsed_seconds(
     let elapsed_seconds = unsafe { &mut *elapsed_seconds_ptr };
     let elapsed_duration = game.get_elapsed();
     *elapsed_seconds = elapsed_duration.as_secs();
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    macro_rules! assert_ok {
+        ($error_info: expr) => {{
+            let error_info = &$error_info;
+            assert_ne!(
+                0, error_info.error_message_max_length,
+                "Use error message buffer!"
+            );
+            if error_info.error_message_length > 0 {
+                let error_msg = unsafe { CStr::from_ptr(error_info.error_message) };
+                assert_eq!(
+                    CError::Ok,
+                    error_info.error_code,
+                    "{}",
+                    error_msg.to_str().unwrap()
+                );
+            } else {
+                assert_eq!(CError::Ok, error_info.error_code, "Lofasz");
+            }
+        }};
+    }
+
+    struct BufferedData<S, B> {
+        #[allow(dead_code)]
+        buffer: Vec<B>,
+        data: S,
+    }
+
+    fn create_open_info_with_size(size: usize) -> BufferedData<COpenInfo, CFieldInfo> {
+        let mut buffer = Vec::with_capacity(size);
+        let field_infos_ptr = buffer.as_mut_ptr();
+        let field_infos_max_length = u64::try_from(size).expect("Size conversion failed");
+        let data = COpenInfo {
+            result: OpenResult::Boom,
+            field_infos_length: 0,
+            field_infos_max_length,
+            field_infos_ptr,
+        };
+
+        BufferedData { buffer, data }
+    }
+
+    fn create_open_info_for(game_ptr: *mut Game) -> BufferedData<COpenInfo, CFieldInfo> {
+        let width = get_width::<usize>(game_ptr);
+        let height = get_height::<usize>(game_ptr);
+        create_open_info_with_size(width * height)
+    }
+
+    fn reset_error_info(error_info: &mut CErrorInfo) {
+        error_info.error_code = CError::UnexpectedError;
+        error_info.error_message_length = 0;
+    }
+
+    #[allow(dead_code)]
+    fn create_error_info(max_error_length: usize) -> BufferedData<CErrorInfo, c_char> {
+        let mut buffer = Vec::with_capacity(max_error_length);
+        let error_message = buffer.as_mut_ptr();
+        let mut data = CErrorInfo {
+            error_code: CError::UnexpectedError,
+            error_message_length: 0,
+            error_message_max_length: u64::try_from(max_error_length)
+                .expect("Size conversion failed"),
+            error_message,
+        };
+        reset_error_info(&mut data);
+        BufferedData { buffer, data }
+    }
+
+    fn check_no_error(error_info: &CErrorInfo) {
+        assert_eq!(CError::Ok, error_info.error_code);
+    }
+
+    fn create_empty_error_info() -> CErrorInfo {
+        let mut result = CErrorInfo {
+            error_code: CError::UnexpectedError,
+            error_message_length: 0,
+            error_message_max_length: 0,
+            error_message: std::ptr::null_mut(),
+        };
+
+        reset_error_info(&mut result);
+        result
+    }
+
+    fn get_width<T>(game_ptr: *mut Game) -> T
+    where
+        T: std::convert::TryFrom<u64>,
+        T::Error: std::fmt::Debug,
+    {
+        let mut error_info = create_empty_error_info();
+        let mut width = 0;
+
+        minesweeper_game_get_width(game_ptr, &mut width, &mut error_info);
+        check_no_error(&error_info);
+        assert!(width > 0);
+
+        return T::try_from(width).expect("Width conversion failed");
+    }
+
+    fn get_height<T>(game_ptr: *mut Game) -> T
+    where
+        T: std::convert::TryFrom<u64>,
+        T::Error: std::fmt::Debug,
+    {
+        let mut error_info = create_empty_error_info();
+        let mut height = 0;
+
+        minesweeper_game_get_height(game_ptr, &mut height, &mut error_info);
+        check_no_error(&error_info);
+        assert!(height > 0);
+
+        return T::try_from(height).expect("Height conversion failed");
+    }
+
+    fn create_game(level: GameLevel) -> *mut Game {
+        let mut error_info = create_empty_error_info();
+
+        let mut game_ptr: *mut Game = std::ptr::null_mut();
+        minesweeper_new_game(&mut game_ptr, level, &mut error_info);
+        check_no_error(&error_info);
+        assert!(!game_ptr.is_null());
+
+        get_width::<usize>(game_ptr);
+        get_height::<usize>(game_ptr);
+
+        let mut elapsed_seconds = 0;
+        minesweeper_game_get_elapsed_seconds(game_ptr, &mut elapsed_seconds, &mut error_info);
+        check_no_error(&error_info);
+        assert_eq!(elapsed_seconds, 0);
+
+        return game_ptr;
+    }
+
+    #[test]
+    fn create_and_destroy() {
+        minesweeper_destroy_game(create_game(GameLevel::Beginner));
+        minesweeper_destroy_game(create_game(GameLevel::Intermediate));
+        minesweeper_destroy_game(create_game(GameLevel::Expert));
+    }
+
+    #[test]
+    fn open() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let width = get_width::<u64>(game_ptr);
+        let height = get_height::<u64>(game_ptr);
+        let mut buffered_open_info = create_open_info_for(game_ptr);
+        let mut buffered_error_info = create_error_info(100);
+
+        minesweeper_game_open(
+            game_ptr,
+            1,
+            1,
+            &mut buffered_open_info.data,
+            &mut buffered_error_info.data,
+        );
+        assert_ok!(buffered_error_info.data);
+        assert!(buffered_open_info.data.field_infos_length > 0);
+        assert_eq!(CError::Ok, buffered_error_info.data.error_code);
+
+        let field_infos_size = usize::try_from(buffered_open_info.data.field_infos_length).unwrap();
+        let slice = unsafe {
+            std::slice::from_raw_parts(buffered_open_info.data.field_infos_ptr, field_infos_size)
+        };
+        for field_info in slice.iter() {
+            assert_ne!(FieldType::Mine, field_info.field_type);
+            assert!(height >= field_info.row);
+            assert!(width >= field_info.column);
+        }
+    }
+
+    #[test]
+    fn open_with_nullptr_as_game() {
+        let mut buffered_open_info = create_open_info_with_size(5);
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open(
+            std::ptr::null_mut(),
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn open_with_nullptr_as_open_info_ptr() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open(game_ptr, 0, 0, std::ptr::null_mut(), &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn open_with_not_empty_field_infos() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        buffered_open_info.data.field_infos_length = 1;
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::InvalidInput, error_info.error_code);
+    }
+
+    #[test]
+    fn open_with_nullptr_as_field_infos() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        buffered_open_info.data.field_infos_ptr = std::ptr::null_mut();
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn open_with_insufficient_buffer() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        buffered_open_info.data.field_infos_max_length = 0;
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::InsufficientBuffer, error_info.error_code);
+    }
+
+    #[test]
+    fn open_with_too_big_indices() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        let mut error_info = create_empty_error_info();
+
+        let width = get_width(game_ptr);
+        minesweeper_game_open(
+            game_ptr,
+            0,
+            width,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::UnexpectedError, error_info.error_code);
+
+        error_info = create_empty_error_info();
+        let height = get_width(game_ptr);
+        minesweeper_game_open(
+            game_ptr,
+            height,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::UnexpectedError, error_info.error_code);
+    }
+
+    #[test]
+    fn toggle_and_untoggle_flag() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut flag_result = FieldFlagResult::AlreadyOpened;
+        let mut buffered_error_info = create_error_info(100);
+        minesweeper_game_toggle_flag(
+            game_ptr,
+            0,
+            0,
+            &mut flag_result,
+            &mut buffered_error_info.data,
+        );
+        assert_ok!(buffered_error_info.data);
+        assert_eq!(FieldFlagResult::Flagged, flag_result);
+
+        reset_error_info(&mut buffered_error_info.data);
+        minesweeper_game_toggle_flag(
+            game_ptr,
+            0,
+            0,
+            &mut flag_result,
+            &mut buffered_error_info.data,
+        );
+        assert_ok!(buffered_error_info.data);
+        assert_eq!(FieldFlagResult::FlagRemoved, flag_result);
+    }
+
+    #[test]
+    fn flag_opened() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_for(game_ptr);
+        let mut buffered_error_info = create_error_info(100);
+        minesweeper_game_open(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut buffered_error_info.data,
+        );
+        assert_ok!(buffered_error_info.data);
+
+        reset_error_info(&mut buffered_error_info.data);
+        let mut flag_result = FieldFlagResult::AlreadyOpened;
+        minesweeper_game_toggle_flag(
+            game_ptr,
+            0,
+            0,
+            &mut flag_result,
+            &mut buffered_error_info.data,
+        );
+        assert_ok!(buffered_error_info.data);
+        assert_eq!(FieldFlagResult::AlreadyOpened, flag_result);
+    }
+
+    // TODO add tests for nullptr checks
+    // TODO add checks for elapsed
 }
