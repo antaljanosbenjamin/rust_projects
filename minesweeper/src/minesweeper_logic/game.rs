@@ -4,7 +4,7 @@ use hrsw::Stopwatch;
 use std::time::Duration;
 use strum_macros::Display;
 
-static GAME_IS_ALREADY_STOPPED_ERROR: &'static str = "Invalid value!";
+static GAME_IS_ALREADY_STOPPED_ERROR: &'static str = "Game is already stopped!";
 
 #[repr(C)]
 #[allow(dead_code)]
