@@ -4,6 +4,7 @@ use std::cmp;
 use std::convert::TryFrom;
 use std::ptr;
 use std::slice;
+use std::time::Duration;
 
 #[repr(C)]
 pub enum CError {
@@ -121,7 +122,7 @@ fn get_max_usize_index() -> usize {
 fn convert_indices_u64_to_usize(row: u64, column: u64) -> Result<(usize, usize), &'static str> {
     let max_index = get_max_u64_index();
     if row > max_index || column > max_index {
-        Err("Coordinates cannot be converted to usize!")
+        Err("Coordinates are too big to convert to usize!")
     } else {
         Ok((
             usize::try_from(row).expect("Conversion failed"),
@@ -133,12 +134,21 @@ fn convert_indices_u64_to_usize(row: u64, column: u64) -> Result<(usize, usize),
 fn convert_indices_usize_to_u64(row: usize, column: usize) -> Result<(u64, u64), &'static str> {
     let max_index = get_max_usize_index();
     if row > max_index || column > max_index {
-        Err("Coordinates cannot be converted to u64!")
+        Err("Coordinates are too big to convert to u64!")
     } else {
         Ok((
             u64::try_from(row).expect("Conversion failed"),
             u64::try_from(column).expect("Conversion failed"),
         ))
+    }
+}
+
+fn convert_size(size: usize) -> Result<u64, &'static str> {
+    let max_index = get_max_usize_index();
+    if size > max_index {
+        Err("Size is too big to convert to u64!")
+    } else {
+        Ok(u64::try_from(size).expect("Conversion failed"))
     }
 }
 
@@ -220,4 +230,58 @@ pub extern "C" fn minesweeper_destroy_game(game_ptr: *mut Game) {
     let _ = unsafe {
         Box::from_raw(game_ptr);
     };
+}
+
+#[no_mangle]
+pub extern "C" fn minesweeper_game_get_width(
+    game_ptr: *mut Game,
+    width_ptr: *mut u64,
+    c_ei_ptr: *mut CErrorInfo,
+) {
+    initialize_to_ok!(c_ei_ptr);
+    if game_ptr.is_null() || width_ptr.is_null() {
+        return_error!(c_ei_ptr, CError::NullPointerAsInput);
+    }
+    let game = unsafe { &mut *game_ptr };
+    let width = unsafe { &mut *width_ptr };
+    *width = return_or_assign!(
+        convert_size(game.get_width()),
+        c_ei_ptr,
+        CError::IndexIsOutOfRange
+    );
+}
+
+#[no_mangle]
+pub extern "C" fn minesweeper_game_get_height(
+    game_ptr: *mut Game,
+    height_ptr: *mut u64,
+    c_ei_ptr: *mut CErrorInfo,
+) {
+    initialize_to_ok!(c_ei_ptr);
+    if game_ptr.is_null() || height_ptr.is_null() {
+        return_error!(c_ei_ptr, CError::NullPointerAsInput);
+    }
+    let game = unsafe { &mut *game_ptr };
+    let height = unsafe { &mut *height_ptr };
+    *height = return_or_assign!(
+        convert_size(game.get_height()),
+        c_ei_ptr,
+        CError::IndexIsOutOfRange
+    );
+}
+
+#[no_mangle]
+pub extern "C" fn minesweeper_game_get_elapsed_seconds(
+    game_ptr: *mut Game,
+    elapsed_seconds_ptr: *mut u64,
+    c_ei_ptr: *mut CErrorInfo,
+) {
+    initialize_to_ok!(c_ei_ptr);
+    if game_ptr.is_null() || elapsed_seconds_ptr.is_null() {
+        return_error!(c_ei_ptr, CError::NullPointerAsInput);
+    }
+    let game = unsafe { &mut *game_ptr };
+    let elapsed_seconds = unsafe { &mut *elapsed_seconds_ptr };
+    let elapsed_duration = game.get_elapsed();
+    *elapsed_seconds = elapsed_duration.as_secs();
 }
