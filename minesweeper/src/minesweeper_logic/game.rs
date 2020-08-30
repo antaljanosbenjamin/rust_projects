@@ -96,6 +96,8 @@ impl Game {
     }
 
     pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
+        self.start_game_if_needed();
+
         if self.is_running() {
             self.table.toggle_flag(row, col)
         } else {
@@ -200,6 +202,11 @@ mod test {
         let height = 10;
         let number_of_mines = 10 * 10 - 2;
         let mut game = Game::new_custom(height, width, number_of_mines).unwrap();
+        assert_eq!(FieldFlagResult::Flagged, game.toggle_flag(0, 0).unwrap());
+        assert_eq!(
+            FieldFlagResult::FlagRemoved,
+            game.toggle_flag(0, 0).unwrap()
+        );
         game.open(0, 0).unwrap();
         assert_eq!(
             FieldFlagResult::AlreadyOpened,
