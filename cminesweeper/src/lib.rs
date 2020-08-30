@@ -168,11 +168,6 @@ pub extern "C" fn minesweeper_game_open(
     if game_ptr.is_null() || c_open_info_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
-    let (urow, ucolumn) = return_or_assign!(
-        convert_indices_u64_to_usize(row, column),
-        c_ei_ptr,
-        CError::IndexIsOutOfRange
-    );
 
     let mut c_open_info = unsafe { &mut *c_open_info_ptr };
     if c_open_info.field_infos_length != 0 {
@@ -185,6 +180,11 @@ pub extern "C" fn minesweeper_game_open(
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
 
+    let (urow, ucolumn) = return_or_assign!(
+        convert_indices_u64_to_usize(row, column),
+        c_ei_ptr,
+        CError::IndexIsOutOfRange
+    );
     let game = unsafe { &mut *game_ptr };
     let open_info = return_or_assign!(game.open(urow, ucolumn), c_ei_ptr);
 
