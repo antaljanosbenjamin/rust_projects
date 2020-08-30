@@ -17,39 +17,41 @@ pub enum CError {
 }
 
 macro_rules! return_error {
-    ($error_info_ptr:expr, $error_code:expr,  $error_msg:expr) => {{
+    ($error_info_ptr:ident, $error_code:expr, $error_msg:expr) => {{
         let error_info = unsafe { &mut *$error_info_ptr };
-        let ref error_message = $error_msg;
-        let error_msg_len = error_message.len();
-        let src = error_message.as_bytes().as_ptr();
-        let len_without_terminator = cmp::min(
-            usize::try_from(error_info.error_message_max_length - 1).unwrap_or(usize::MAX),
-            error_msg_len,
-        );
-        unsafe {
-            ptr::copy_nonoverlapping(
-                src,
-                error_info.error_message as *mut u8,
-                len_without_terminator,
+        if $error_msg.len() > 0 && error_info.error_message_max_length > 0 {
+            let ref error_message = $error_msg;
+            let error_msg_len = error_message.len();
+            let src = error_message.as_bytes().as_ptr();
+            let len_without_terminator = cmp::min(
+                usize::try_from(error_info.error_message_max_length - 1).unwrap_or(usize::MAX),
+                error_msg_len,
             );
-            *error_info
-                .error_message
-                .offset(len_without_terminator as isize) = 0;
-            error_info.error_message_length = len_without_terminator as u64;
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    src,
+                    error_info.error_message as *mut u8,
+                    len_without_terminator,
+                );
+                *error_info
+                    .error_message
+                    .offset(len_without_terminator as isize) = 0;
+                error_info.error_message_length = len_without_terminator as u64;
+            }
         }
         error_info.error_code = $error_code;
         return;
     }};
-    ($error_info_ptr:expr, $error_code:expr) => {
+    ($error_info_ptr:ident, $error_code:expr) => {
         return_error!($error_info_ptr, $error_code, "");
     };
-    ($error_info_ptr:expr) => {
+    ($error_info_ptr:ident) => {
         return_error!($error_info_ptr, CError::UnexpectedError);
     };
 }
 
 macro_rules! return_or_assign {
-    ($x:expr, $error_info_ptr:expr, $error_code:expr) => {
+    ($x:expr, $error_info_ptr:ident, $error_code:expr) => {
         match $x {
             Ok(value) => value,
             Err(error_msg) => {
@@ -57,14 +59,16 @@ macro_rules! return_or_assign {
             }
         }
     };
-    ($x:expr, $error_info_ptr:expr) => {
+    ($x:expr, $error_info_ptr:ident) => {
         return_or_assign!($x, $error_info_ptr, CError::UnexpectedError)
     };
 }
 
 macro_rules! initialize_to_ok {
-    ($error_info_ptr:expr) => {
-        unsafe { &mut *$error_info_ptr }.error_code = CError::Ok;
+    ($error_info_ptr:ident) => {
+        let mut error_info = unsafe { &mut *$error_info_ptr };
+        error_info.error_code = CError::Ok;
+        error_info.error_message_length = 0;
     };
 }
 
