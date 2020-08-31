@@ -2,7 +2,6 @@ use libc::c_char;
 use minesweeper::{FieldFlagResult, FieldType, Game, GameLevel, OpenResult};
 use std::cmp;
 use std::convert::TryFrom;
-use std::ffi::CStr;
 use std::ptr;
 use std::slice;
 use strum_macros::Display;
@@ -299,6 +298,7 @@ pub extern "C" fn minesweeper_game_get_elapsed_seconds(
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::ffi::CStr;
 
     macro_rules! assert_ok {
         ($error_info: expr) => {{
@@ -621,6 +621,51 @@ mod test {
         assert_eq!(FieldFlagResult::AlreadyOpened, flag_result);
     }
 
-    // TODO add tests for nullptr checks
-    // TODO add checks for elapsed
+    #[test]
+    fn get_width_with_nullptr_as_game() {
+        let mut error_info = create_empty_error_info();
+        let mut width = 0;
+        minesweeper_game_get_width(std::ptr::null_mut(), &mut width, &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn get_width_with_nullptr_as_width() {
+        let mut error_info = create_empty_error_info();
+        let game_ptr = create_game(GameLevel::Beginner);
+        minesweeper_game_get_width(game_ptr, std::ptr::null_mut(), &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn get_height_with_nullptr_as_game() {
+        let mut error_info = create_empty_error_info();
+        let mut height = 0;
+        minesweeper_game_get_height(std::ptr::null_mut(), &mut height, &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn get_height_with_nullptr_as_height() {
+        let mut error_info = create_empty_error_info();
+        let game_ptr = create_game(GameLevel::Beginner);
+        minesweeper_game_get_height(game_ptr, std::ptr::null_mut(), &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn get_elapsed_seconds_with_nullptr_as_game() {
+        let mut error_info = create_empty_error_info();
+        let mut elapsed = 0;
+        minesweeper_game_get_elapsed_seconds(std::ptr::null_mut(), &mut elapsed, &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn get_elapsed_seconds_with_nullptr_as_elapsed() {
+        let mut error_info = create_empty_error_info();
+        let game_ptr = create_game(GameLevel::Beginner);
+        minesweeper_game_get_elapsed_seconds(game_ptr, std::ptr::null_mut(), &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
 }
