@@ -232,13 +232,22 @@ pub extern "C" fn minesweeper_game_toggle_flag(
 }
 
 #[no_mangle]
-pub extern "C" fn minesweeper_destroy_game(game_ptr: *mut Game) {
+pub extern "C" fn minesweeper_destroy_game(
+    game_ptr_ptr: *mut *mut Game,
+    c_ei_ptr: *mut CErrorInfo,
+) {
+    initialize_to_ok!(c_ei_ptr);
+    if game_ptr_ptr.is_null() {
+        return_error!(c_ei_ptr, CError::NullPointerAsInput);
+    }
+    let game_ptr = unsafe { &mut *game_ptr_ptr };
     if game_ptr.is_null() {
         return;
     }
     let _ = unsafe {
-        Box::from_raw(game_ptr);
+        Box::<Game>::from_raw(*game_ptr);
     };
+    *game_ptr = std::ptr::null_mut();
 }
 
 #[no_mangle]
@@ -432,11 +441,52 @@ mod test {
         return game_ptr;
     }
 
+    fn destroy_game(game_ptr: &mut *mut Game) {
+        let mut error_info = create_empty_error_info();
+        minesweeper_destroy_game(game_ptr, &mut error_info);
+        check_no_error(&error_info);
+    }
+
+    #[test]
+    fn destroy_game_with_nullptr() {
+        let mut error_info = create_empty_error_info();
+        minesweeper_destroy_game(std::ptr::null_mut(), &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn destroy_game_double_destroy() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        destroy_game(&mut game_ptr);
+        let mut error_info = create_empty_error_info();
+        minesweeper_destroy_game(&mut game_ptr, &mut error_info);
+        check_no_error(&error_info);
+    }
+
     #[test]
     fn create_and_destroy() {
-        minesweeper_destroy_game(create_game(GameLevel::Beginner));
-        minesweeper_destroy_game(create_game(GameLevel::Intermediate));
-        minesweeper_destroy_game(create_game(GameLevel::Expert));
+        let mut error_info = create_empty_error_info();
+        {
+            let mut game_ptr = create_game(GameLevel::Beginner);
+            assert!(!game_ptr.is_null());
+            minesweeper_destroy_game(&mut game_ptr, &mut error_info);
+            check_no_error(&error_info);
+            assert!(game_ptr.is_null());
+        }
+        {
+            let mut game_ptr = create_game(GameLevel::Intermediate);
+            assert!(!game_ptr.is_null());
+            minesweeper_destroy_game(&mut game_ptr, &mut error_info);
+            check_no_error(&error_info);
+            assert!(game_ptr.is_null());
+        }
+        {
+            let mut game_ptr = create_game(GameLevel::Expert);
+            assert!(!game_ptr.is_null());
+            minesweeper_destroy_game(&mut game_ptr, &mut error_info);
+            check_no_error(&error_info);
+            assert!(game_ptr.is_null());
+        }
     }
 
     #[test]
