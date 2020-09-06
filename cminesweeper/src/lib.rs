@@ -448,6 +448,23 @@ mod test {
     }
 
     #[test]
+    fn new_game_with_nullptr() {
+        let mut error_info = create_empty_error_info();
+        let game_ptr_ptr = std::ptr::null_mut();
+        minesweeper_new_game(game_ptr_ptr, GameLevel::Beginner, &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn new_game_with_already_created_game() {
+        let mut error_info = create_empty_error_info();
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        minesweeper_new_game(&mut game_ptr, GameLevel::Beginner, &mut error_info);
+        assert_eq!(CError::InvalidInput, error_info.error_code);
+        destroy_game(&mut game_ptr);
+    }
+
+    #[test]
     fn destroy_game_with_nullptr() {
         let mut error_info = create_empty_error_info();
         minesweeper_destroy_game(std::ptr::null_mut(), &mut error_info);
