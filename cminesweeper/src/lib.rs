@@ -252,7 +252,7 @@ pub extern "C" fn minesweeper_destroy_game(
 
 #[no_mangle]
 pub extern "C" fn minesweeper_game_get_width(
-    game_ptr: *mut Game,
+    game_ptr: *const Game,
     width_ptr: *mut u64,
     c_ei_ptr: *mut CErrorInfo,
 ) {
@@ -260,7 +260,7 @@ pub extern "C" fn minesweeper_game_get_width(
     if game_ptr.is_null() || width_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
-    let game = unsafe { &mut *game_ptr };
+    let game = unsafe { &*game_ptr };
     let width = unsafe { &mut *width_ptr };
     *width = return_or_assign!(
         convert_size(game.get_width()),
@@ -271,7 +271,7 @@ pub extern "C" fn minesweeper_game_get_width(
 
 #[no_mangle]
 pub extern "C" fn minesweeper_game_get_height(
-    game_ptr: *mut Game,
+    game_ptr: *const Game,
     height_ptr: *mut u64,
     c_ei_ptr: *mut CErrorInfo,
 ) {
@@ -279,7 +279,7 @@ pub extern "C" fn minesweeper_game_get_height(
     if game_ptr.is_null() || height_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
-    let game = unsafe { &mut *game_ptr };
+    let game = unsafe { &*game_ptr };
     let height = unsafe { &mut *height_ptr };
     *height = return_or_assign!(
         convert_size(game.get_height()),
@@ -290,7 +290,7 @@ pub extern "C" fn minesweeper_game_get_height(
 
 #[no_mangle]
 pub extern "C" fn minesweeper_game_get_elapsed_seconds(
-    game_ptr: *mut Game,
+    game_ptr: *const Game,
     elapsed_seconds_ptr: *mut u64,
     c_ei_ptr: *mut CErrorInfo,
 ) {
@@ -298,7 +298,7 @@ pub extern "C" fn minesweeper_game_get_elapsed_seconds(
     if game_ptr.is_null() || elapsed_seconds_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
-    let game = unsafe { &mut *game_ptr };
+    let game = unsafe { &*game_ptr };
     let elapsed_seconds = unsafe { &mut *elapsed_seconds_ptr };
     let elapsed_duration = game.get_elapsed();
     *elapsed_seconds = elapsed_duration.as_secs();
