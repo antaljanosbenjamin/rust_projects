@@ -411,10 +411,12 @@ impl Table {
             result: OpenResult::Boom,
             field_infos: HashMap::new(),
         };
-        for (row, column) in &self.mine_locations {
-            boom_result
-                .field_infos
-                .insert((*row, *column), FieldType::Mine {});
+        for row in 0..self.height {
+            for column in 0..self.width {
+                boom_result
+                    .field_infos
+                    .insert((row, column), self.fields[row][column].get_field_type());
+            }
         }
         boom_result
     }
@@ -901,28 +903,6 @@ mod test {
                 Table::new(table_size, table_size, table_size * table_size - 1).unwrap();
             let open_info = table.open_field(test_index, test_index * 2).unwrap();
             assert_eq!(OpenResult::WINNER, open_info.result);
-        }
-    }
-
-    #[test]
-    fn boom_result() {
-        let test_info = create_test_info_5x6();
-        let mut table = test_info.table.borrow_mut();
-        let first_open_result = table.open_field(0, 0).unwrap();
-        assert_eq!(OpenResult::Ok, first_open_result.result);
-        assert_eq!(8, first_open_result.field_infos.len());
-        let mine_location = test_info.mine_locations.iter().next().unwrap();
-        let mine_open_result = table.open_field(mine_location.0, mine_location.1).unwrap();
-        assert_eq!(OpenResult::Boom, mine_open_result.result);
-        assert_eq!(
-            test_info.mine_locations.len(),
-            mine_open_result.field_infos.len()
-        );
-        for (row, col) in &test_info.mine_locations {
-            assert_eq!(
-                Some(&FieldType::Mine),
-                mine_open_result.field_infos.get(&(*row, *col))
-            );
         }
     }
 
