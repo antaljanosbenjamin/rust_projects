@@ -23,8 +23,6 @@ enum GameState {
 }
 
 pub struct Game {
-    width: usize,
-    height: usize,
     table: Table,
     stopwatch: Stopwatch,
     state: GameState,
@@ -44,10 +42,8 @@ impl Game {
         width: usize,
         number_of_mines: usize,
     ) -> Result<Game, &'static str> {
-        let table = Table::new(width, height, number_of_mines)?;
+        let table = Table::new(height, width, number_of_mines)?;
         Ok(Game {
-            width,
-            height,
             table,
             stopwatch: Stopwatch::new(),
             state: GameState::NotStarted,
@@ -105,12 +101,12 @@ impl Game {
         }
     }
 
-    pub fn get_width(&self) -> usize {
-        self.width
+    pub fn width(&self) -> usize {
+        self.table.width()
     }
 
-    pub fn get_height(&self) -> usize {
-        self.height
+    pub fn height(&self) -> usize {
+        self.table.height()
     }
 
     pub fn get_elapsed(&self) -> Duration {
@@ -150,8 +146,8 @@ mod test {
         ];
 
         for (game, height, width) in test_cases.iter() {
-            assert_eq!(game.get_height(), *height);
-            assert_eq!(game.get_width(), *width);
+            assert_eq!(game.height(), *height);
+            assert_eq!(game.width(), *width);
         }
     }
 
@@ -234,8 +230,8 @@ mod test {
         thread::sleep(Duration::from_secs(1));
         let approximately_1_sec_in_nanos = game.get_elapsed().as_nanos() as f64;
         let mut end_time: Option<Instant> = None;
-        for row in 0..game.get_height() {
-            for col in 0..game.get_width() {
+        for row in 0..game.height() {
+            for col in 0..game.width() {
                 match game.open(row, col) {
                     Ok(result) => {
                         if result.result == OpenResult::Boom || result.result == OpenResult::WINNER

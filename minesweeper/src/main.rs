@@ -52,7 +52,7 @@ enum Action {
 fn main() {
     let mut g = Game::new(GameLevel::Beginner);
     let mut last_result = OpenResult::Ok;
-    let mut fields = create_empty_field(g.get_width(), g.get_height());
+    let mut fields = create_empty_field(g.width(), g.height());
     while last_result != OpenResult::WINNER && last_result != OpenResult::Boom {
         print_fields(&fields);
 

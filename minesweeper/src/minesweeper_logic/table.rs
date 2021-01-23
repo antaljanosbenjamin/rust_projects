@@ -531,6 +531,14 @@ impl Table {
             Ok(self.fields[row][col].toggle_flag())
         }
     }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
 }
 
 #[cfg(test)]
@@ -653,6 +661,13 @@ mod test {
         for ((r, c), field_type) in &open_info.field_infos {
             assert_eq!(*field_type, test_info.fields[*r][*c]);
         }
+    }
+
+    fn check_height_and_width(expected_height: usize, expected_width: usize) {
+        const NUMBER_OF_MINES: usize = 1;
+        let table = Table::new(expected_height, expected_width, NUMBER_OF_MINES).unwrap();
+        assert_eq!(table.height(), expected_height);
+        assert_eq!(table.width(), expected_width);
     }
 
     #[test]
@@ -1172,6 +1187,25 @@ mod test {
             &table.open_field(mine_location.0, mine_location.1).unwrap(),
             &test_info,
         );
+    }
+
+    #[test]
+    fn width_and_height() {
+        {
+            let expected_width = 3;
+            let expected_height = 2;
+            check_height_and_width(expected_height, expected_width);
+        }
+        {
+            let expected_width = 2;
+            let expected_height = 3;
+            check_height_and_width(expected_height, expected_width);
+        }
+        {
+            let expected_width = 10;
+            let expected_height = 10;
+            check_height_and_width(expected_height, expected_width);
+        }
     }
 
     // TODO Write test to full game

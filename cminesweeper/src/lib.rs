@@ -263,7 +263,7 @@ pub extern "C" fn minesweeper_game_get_width(
     let game = unsafe { &*game_ptr };
     let width = unsafe { &mut *width_ptr };
     *width = return_or_assign!(
-        convert_size(game.get_width()),
+        convert_size(game.width()),
         c_ei_ptr,
         CError::IndexIsOutOfRange
     );
@@ -282,7 +282,7 @@ pub extern "C" fn minesweeper_game_get_height(
     let game = unsafe { &*game_ptr };
     let height = unsafe { &mut *height_ptr };
     *height = return_or_assign!(
-        convert_size(game.get_height()),
+        convert_size(game.height()),
         c_ei_ptr,
         CError::IndexIsOutOfRange
     );
