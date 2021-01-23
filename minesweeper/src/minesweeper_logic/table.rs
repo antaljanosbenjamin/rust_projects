@@ -421,23 +421,9 @@ impl Table {
         boom_result
     }
 
-    pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
-        if row >= self.height || col >= self.width {
-            return Err(INVALID_INDEX_ERROR);
-        }
-        if self.fields[row][col].get_field_state().is_flagged() {
-            return Ok(OpenInfo {
-                result: OpenResult::IsFlagged,
-                field_infos: HashMap::new(),
-            });
-        }
-
-        if self.number_of_opened_fields == 0 && self.fields[row][col].field_type.is_mine() {
-            self.move_mine(row, col)?;
-        }
-
-        let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
+    fn execute_open(&mut self, visiter: &mut FieldVisiter) -> Result<OpenInfo, &'static str> {
         let mut field_infos = HashMap::new();
+        let mut has_boomed = false;
 
         while let Some((r, c)) = visiter.next() {
             match self.fields[r][c].open() {
@@ -448,11 +434,15 @@ impl Table {
                 FieldOpenResult::SimpleOpen => {
                     self.number_of_opened_fields = self.number_of_opened_fields + 1;
                 }
-                FieldOpenResult::Boom => return Ok(self.construct_boom_result()),
+                FieldOpenResult::Boom => has_boomed = true,
                 _ => continue,
             };
 
             field_infos.insert((r, c), self.fields[r][c].get_field_type());
+        }
+
+        if has_boomed {
+            return Ok(self.construct_boom_result());
         }
 
         if self.all_fields_are_open() {
@@ -474,7 +464,66 @@ impl Table {
         }
     }
 
-    #[allow(dead_code)]
+    pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+        if row >= self.height || col >= self.width {
+            return Err(INVALID_INDEX_ERROR);
+        }
+        if self.fields[row][col].get_field_state().is_flagged() {
+            return Ok(OpenInfo {
+                result: OpenResult::IsFlagged,
+                field_infos: HashMap::new(),
+            });
+        }
+
+        if self.number_of_opened_fields == 0 && self.fields[row][col].field_type.is_mine() {
+            self.move_mine(row, col)?;
+        }
+
+        let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
+        self.execute_open(&mut visiter)
+    }
+
+    fn count_flagged_neighbors(&self, row: usize, col: usize) -> Result<u8, &'static str> {
+        let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
+
+        visiter.extend_with_unvisited_neighbors(row, col);
+
+        let mut number_of_flagged_neighbors: u8 = 0;
+        while let Some((r, c)) = visiter.next() {
+            if row == r && col == c {
+                continue;
+            }
+            if self.fields[r][c].get_field_state() == FieldState::Flagged {
+                number_of_flagged_neighbors += 1;
+            }
+        }
+        Ok(number_of_flagged_neighbors)
+    }
+
+    pub fn open_neighbours(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+        if row >= self.height || col >= self.width {
+            return Err(INVALID_INDEX_ERROR);
+        }
+
+        let empty_open_info = OpenInfo {
+            result: OpenResult::Ok,
+            field_infos: HashMap::new(),
+        };
+
+        if !self.fields[row][col].get_field_state().is_opened() {
+            return Ok(empty_open_info);
+        }
+
+        match self.fields[row][col].get_field_type() {
+            FieldType::Numbered(x) if x == self.count_flagged_neighbors(row, col)? => {
+                let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
+                visiter.extend_with_unvisited_neighbors(row, col);
+                self.execute_open(&mut visiter)
+            }
+            _ => Ok(empty_open_info),
+        }
+    }
+
     pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
         if row >= self.height || col >= self.width {
             Err(INVALID_INDEX_ERROR)
@@ -577,6 +626,33 @@ mod test {
     fn check_opened_field_cannot_be_updated_error(result: Result<(), &'static str>) {
         assert!(result.is_err());
         assert_eq!(OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR, result.err().unwrap());
+    }
+
+    fn check_open_info(
+        open_info: &OpenInfo,
+        expected_result: &OpenResult,
+        expected_fields: &Vec<(usize, usize)>,
+        test_field_infos: &Vec<Vec<FieldType>>,
+    ) {
+        assert_eq!(open_info.result, *expected_result);
+        assert_eq!(open_info.field_infos.len(), expected_fields.len());
+        for &(r, c) in expected_fields {
+            assert_eq!(
+                open_info.field_infos.get(&(r, c)).unwrap(),
+                &test_field_infos[r][c]
+            );
+        }
+    }
+
+    fn check_boomed_open_info(open_info: &OpenInfo, test_info: &TestInfo) {
+        assert_eq!(open_info.result, OpenResult::Boom);
+        assert_eq!(
+            open_info.field_infos.len(),
+            test_info.width * test_info.height
+        );
+        for ((r, c), field_type) in &open_info.field_infos {
+            assert_eq!(*field_type, test_info.fields[*r][*c]);
+        }
     }
 
     #[test]
@@ -904,6 +980,198 @@ mod test {
             let open_info = table.open_field(test_index, test_index * 2).unwrap();
             assert_eq!(OpenResult::WINNER, open_info.result);
         }
+    }
+
+    #[test]
+    fn open_neighbours_of_closed_numbered() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        let row = 1;
+        let col = 1;
+        assert_eq!(test_info.fields[row][col], FieldType::Numbered(1));
+        let open_info = table.open_neighbours(row, col).unwrap();
+        assert_eq!(open_info.result, OpenResult::Ok);
+        assert_eq!(open_info.field_infos.len(), 0);
+    }
+
+    #[test]
+    fn open_neighbours_of_closed_empty() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        let row = 0;
+        let col = 0;
+        assert_eq!(test_info.fields[row][col], FieldType::Empty);
+        let open_info = table.open_neighbours(row, col).unwrap();
+        assert_eq!(open_info.result, OpenResult::Ok);
+        assert_eq!(open_info.field_infos.len(), 0);
+    }
+
+    #[test]
+    fn open_neighbours_with_wrong_flag() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        let flag_row = 1;
+        let flag_col = 3;
+        assert_ne!(test_info.fields[flag_row][flag_col], FieldType::Mine);
+        let flag_result = table.toggle_flag(flag_row, flag_col).unwrap();
+        assert_eq!(flag_result, FieldFlagResult::Flagged);
+
+        let open_row = 1;
+        let open_col = 4;
+
+        let simple_open_info = table.open_field(open_row, open_col).unwrap();
+        assert_eq!(simple_open_info.result, OpenResult::Ok);
+        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(
+            simple_open_info.field_infos.get(&(open_row, open_col)),
+            Some(&FieldType::Numbered(1))
+        );
+        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        check_boomed_open_info(&neighbor_open_info, &test_info);
+    }
+
+    #[test]
+    fn open_neighbours_with_correct_flag() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        let flag_row = 0;
+        let flag_col = 3;
+        assert_eq!(test_info.fields[flag_row][flag_col], FieldType::Mine);
+        let flag_result = table.toggle_flag(flag_row, flag_col).unwrap();
+        assert_eq!(flag_result, FieldFlagResult::Flagged);
+
+        let open_row = 1;
+        let open_col = 4;
+
+        let simple_open_info = table.open_field(open_row, open_col).unwrap();
+        assert_eq!(simple_open_info.result, OpenResult::Ok);
+        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(
+            simple_open_info.field_infos.get(&(open_row, open_col)),
+            Some(&FieldType::Numbered(1))
+        );
+        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        let expected_field_locations = vec![
+            (0, 4),
+            (0, 5),
+            (1, 3),
+            (1, 5),
+            (2, 3),
+            (2, 4),
+            (2, 5),
+            (3, 4),
+            (3, 5),
+            (4, 4),
+            (4, 5),
+        ];
+        check_open_info(
+            &neighbor_open_info,
+            &OpenResult::Ok,
+            &expected_field_locations,
+            &test_info.fields,
+        );
+    }
+
+    #[test]
+    fn open_neighbours_with_correct_flags() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        let flag_coords = vec![(2, 2), (3, 0), (4, 1)];
+        for (r, c) in flag_coords {
+            assert_eq!(test_info.fields[r][c], FieldType::Mine);
+            let flag_result = table.toggle_flag(r, c).unwrap();
+            assert_eq!(flag_result, FieldFlagResult::Flagged);
+        }
+
+        let open_row = 3;
+        let open_col = 1;
+
+        let simple_open_info = table.open_field(open_row, open_col).unwrap();
+        assert_eq!(simple_open_info.result, OpenResult::Ok);
+        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(
+            simple_open_info.field_infos.get(&(open_row, open_col)),
+            Some(&FieldType::Numbered(3))
+        );
+        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        let expected_field_locations = vec![(2, 0), (2, 1), (3, 2), (4, 0), (4, 2)];
+
+        check_open_info(
+            &neighbor_open_info,
+            &OpenResult::Ok,
+            &expected_field_locations,
+            &test_info.fields,
+        );
+    }
+
+    #[test]
+    fn open_neighbours_with_wrong_flags() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        let flag_coords = vec![(2, 1), (3, 2), (4, 2)];
+        for (r, c) in flag_coords {
+            assert_ne!(test_info.fields[r][c], FieldType::Mine);
+            let flag_result = table.toggle_flag(r, c).unwrap();
+            assert_eq!(flag_result, FieldFlagResult::Flagged);
+        }
+
+        let open_row = 3;
+        let open_col = 1;
+
+        let simple_open_info = table.open_field(open_row, open_col).unwrap();
+        assert_eq!(simple_open_info.result, OpenResult::Ok);
+        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(
+            simple_open_info.field_infos.get(&(open_row, open_col)),
+            Some(&FieldType::Numbered(3))
+        );
+        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        check_boomed_open_info(&neighbor_open_info, &test_info);
+    }
+
+    #[test]
+    fn open_neighbours_with_not_enough_flags() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        let flag_coords = vec![(2, 2), (3, 0)];
+        for (r, c) in flag_coords {
+            let flag_result = table.toggle_flag(r, c).unwrap();
+            assert_eq!(flag_result, FieldFlagResult::Flagged);
+        }
+
+        let open_row = 3;
+        let open_col = 1;
+
+        let simple_open_info = table.open_field(open_row, open_col).unwrap();
+        assert_eq!(simple_open_info.result, OpenResult::Ok);
+        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(
+            simple_open_info.field_infos.get(&(open_row, open_col)),
+            Some(&FieldType::Numbered(3))
+        );
+        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        let expected_field_locations = vec![];
+
+        check_open_info(
+            &neighbor_open_info,
+            &OpenResult::Ok,
+            &expected_field_locations,
+            &test_info.fields,
+        );
+    }
+
+    #[test]
+    fn boom_result() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        let first_open_result = table.open_field(0, 0).unwrap();
+        assert_eq!(OpenResult::Ok, first_open_result.result);
+        assert_eq!(8, first_open_result.field_infos.len());
+        let mine_location = test_info.mine_locations.iter().next().unwrap();
+        check_boomed_open_info(
+            &table.open_field(mine_location.0, mine_location.1).unwrap(),
+            &test_info,
+        );
     }
 
     // TODO Write test to full game
