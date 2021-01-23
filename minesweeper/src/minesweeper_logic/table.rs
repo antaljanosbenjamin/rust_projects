@@ -262,7 +262,7 @@ fn get_neighbor_fields(
 
     let mut neighbors = HashSet::new();
 
-    for offset in NEIGHBOR_OFFSETS.iter() {
+    for offset in &NEIGHBOR_OFFSETS {
         match (add(row, offset.0), add(col, offset.1)) {
             (Some(r), Some(c)) if r < height && c < width => {
                 neighbors.insert((r, c));
@@ -456,7 +456,7 @@ impl Table {
         }
 
         if self.all_fields_are_open() {
-            for mine_coords in self.mine_locations.iter() {
+            for mine_coords in &self.mine_locations {
                 field_infos.insert(
                     (mine_coords.0, mine_coords.1),
                     self.fields[mine_coords.0][mine_coords.1].get_field_type(),
@@ -696,10 +696,10 @@ mod test {
         expected_values.insert((5, 2, 0));
         expected_values.insert((5, 3, 0));
         expected_values.insert((5, 4, 2));
-        for (row, col, expected_value) in expected_values.iter() {
+        for (row, col, expected_value) in &expected_values {
             assert_eq!(
-                expected_value,
-                &get_field_value(height, width, *row, *col, &mine_locations).unwrap()
+                *expected_value,
+                get_field_value(height, width, *row, *col, &mine_locations).unwrap()
             )
         }
     }

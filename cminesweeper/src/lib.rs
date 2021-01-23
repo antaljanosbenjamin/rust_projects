@@ -200,7 +200,7 @@ pub extern "C" fn minesweeper_game_open(
         )
     };
     let mut index: usize = 0;
-    for (coords, field_type) in open_info.field_infos.iter() {
+    for (coords, field_type) in open_info.field_infos {
         let converted_coords = return_or_assign!(
             convert_indices_usize_to_u64(coords.0, coords.1),
             c_ei_ptr,

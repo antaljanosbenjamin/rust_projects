@@ -130,10 +130,10 @@ fn main() {
     let print_dbg = convert_arg_to_bool(&args.get(4)).unwrap_or(false);
 
     let mut win_count = 0;
-    
+
     for _count in 0..game_count {
         let mut game = DoorGame::new(n);
-        
+
         game.open_doors();
         if print_dbg {
             println!("Doors after opening:");
