@@ -544,7 +544,20 @@ impl Table {
 #[cfg(test)]
 mod test {
     use super::*;
+    use lazy_static::lazy_static;
     use std::cell::RefCell;
+
+    lazy_static! {
+        static ref MINE_LOCATIONS_5X6: HashSet<(usize, usize)> = {
+            let mut mine_locations = HashSet::new();
+            mine_locations.insert((0, 3));
+            mine_locations.insert((3, 0));
+            mine_locations.insert((3, 3));
+            mine_locations.insert((2, 2));
+            mine_locations.insert((4, 1));
+            mine_locations
+        };
+    }
 
     struct TestInfo {
         height: usize,
@@ -560,12 +573,6 @@ mod test {
     // M 3 3 M 1 0
     // 2 M 2 1 1 0
     fn create_test_info_5x6() -> TestInfo {
-        let mut mine_locations = HashSet::new();
-        mine_locations.insert((0, 3));
-        mine_locations.insert((3, 0));
-        mine_locations.insert((3, 3));
-        mine_locations.insert((2, 2));
-        mine_locations.insert((4, 1));
         let fields = vec![
             vec![
                 FieldType::Empty,
@@ -614,9 +621,9 @@ mod test {
             height,
             width,
             table: RefCell::new(
-                Table::with_custom_mines(height, width, mine_locations.clone()).unwrap(),
+                Table::with_custom_mines(height, width, MINE_LOCATIONS_5X6.clone()).unwrap(),
             ),
-            mine_locations,
+            mine_locations: MINE_LOCATIONS_5X6.clone(),
             fields,
         }
     }
@@ -988,12 +995,15 @@ mod test {
 
     #[test]
     fn first_open_is_always_successful() {
-        let table_size = 30;
-        for test_index in 1..10 {
+        let width = 6;
+        let height = 5;
+        for &(row, col) in MINE_LOCATIONS_5X6.iter() {
             let mut table =
-                Table::new(table_size, table_size, table_size * table_size - 1).unwrap();
-            let open_info = table.open_field(test_index, test_index * 2).unwrap();
-            assert_eq!(OpenResult::WINNER, open_info.result);
+                Table::with_custom_mines(height, width, MINE_LOCATIONS_5X6.clone()).unwrap();
+            let open_info = table.open_field(row, col).unwrap();
+            assert_eq!(open_info.result, OpenResult::Ok);
+            const MIN_FIELD_INFOS: usize = 1;
+            assert!(open_info.field_infos.len() >= MIN_FIELD_INFOS);
         }
     }
 
