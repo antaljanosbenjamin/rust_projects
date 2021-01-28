@@ -44,7 +44,7 @@ enum FieldOpenResult {
     IsFlagged,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 struct FieldInner {
     field_type: FieldType,
     state: FieldState,
@@ -239,8 +239,8 @@ fn generate_mine_locations(
     let mut mine_locations = HashSet::new();
     while (mine_locations.len() as usize) < number_of_mines {
         mine_locations.insert((
-            rand::random::<usize>() % width,
             rand::random::<usize>() % height,
+            rand::random::<usize>() % width,
         ));
     }
     Ok(mine_locations)
@@ -321,6 +321,7 @@ fn generate_fields(
     Ok(fields)
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct Table {
     height: usize,
     width: usize,
@@ -330,14 +331,19 @@ pub struct Table {
 }
 
 impl Table {
-    fn with_custom_mines(
+    pub fn with_custom_mines(
         height: usize,
         width: usize,
         mine_locations: HashSet<(usize, usize)>,
     ) -> Result<Table, &'static str> {
-        if width.checked_mul(height).is_none() {
+        if width.checked_mul(height).is_none()
+            || mine_locations
+                .iter()
+                .any(|&(row, col)| row >= height || col >= width)
+        {
             return Err(INVALID_SIZE_ERROR);
         }
+
         let fields = generate_fields(height, width, &mine_locations)?;
         Ok(Table {
             height,
@@ -1218,5 +1224,47 @@ mod test {
         }
     }
 
+    #[test]
+    fn with_custom_mines_invalid_size() {
+        const HEIGHT: usize = 4;
+        const WIDTH: usize = 6;
+        let expected_error: Result<Table, &'static str> = Err(INVALID_SIZE_ERROR);
+        {
+            let mut mine_locations = HashSet::new();
+            mine_locations.insert((HEIGHT - 1, WIDTH - 1));
+            let result = Table::with_custom_mines(HEIGHT, WIDTH, mine_locations);
+            assert!(
+                result.is_ok(),
+                "Something wrong with the initial configuration"
+            );
+        }
+        {
+            let mut mine_locations = HashSet::new();
+            mine_locations.insert((HEIGHT, WIDTH - 1));
+            let result = Table::with_custom_mines(HEIGHT, WIDTH, mine_locations);
+            assert_eq!(
+                expected_error, result,
+                "Mine row is too high, but not detected"
+            );
+        }
+        {
+            let mut mine_locations = HashSet::new();
+            mine_locations.insert((HEIGHT - 1, WIDTH));
+            let result = Table::with_custom_mines(HEIGHT, WIDTH, mine_locations);
+            assert_eq!(
+                expected_error, result,
+                "Mine col is too high, but not detected"
+            );
+        }
+        {
+            let mut mine_locations = HashSet::new();
+            mine_locations.insert((HEIGHT, WIDTH));
+            let result = Table::with_custom_mines(HEIGHT, WIDTH, mine_locations);
+            assert_eq!(
+                expected_error, result,
+                "Mine row and col are too high, but not detected"
+            );
+        }
+    }
     // TODO Write test to full game
 }
