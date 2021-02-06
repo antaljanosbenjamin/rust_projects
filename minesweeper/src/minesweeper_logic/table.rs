@@ -1,6 +1,7 @@
 use super::field_type::FieldType;
 use super::results::{FieldFlagResult, OpenInfo, OpenResult};
 use indexmap::IndexSet;
+use mockall::automock;
 use std::collections::{HashMap, HashSet};
 use strum_macros::Display;
 
@@ -33,6 +34,15 @@ trait Field {
     fn get_field_state(&self) -> FieldState;
     fn get_field_type(&self) -> FieldType;
     fn get_char_repr(&self) -> char;
+}
+
+#[automock]
+pub trait Table {
+    fn width(&self) -> usize;
+    fn height(&self) -> usize;
+    fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str>;
+    fn open_neighbors(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str>;
+    fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str>;
 }
 
 #[derive(Eq, PartialEq, Display, Debug)]
@@ -322,7 +332,7 @@ fn generate_fields(
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct Table {
+pub struct BasicTable {
     height: usize,
     width: usize,
     mine_locations: HashSet<(usize, usize)>,
@@ -330,12 +340,12 @@ pub struct Table {
     fields: Vec<Vec<FieldInner>>,
 }
 
-impl Table {
-    pub fn with_custom_mines(
+impl BasicTable {
+    fn with_custom_mines(
         height: usize,
         width: usize,
         mine_locations: HashSet<(usize, usize)>,
-    ) -> Result<Table, &'static str> {
+    ) -> Result<BasicTable, &'static str> {
         if width.checked_mul(height).is_none()
             || mine_locations
                 .iter()
@@ -345,7 +355,7 @@ impl Table {
         }
 
         let fields = generate_fields(height, width, &mine_locations)?;
-        Ok(Table {
+        Ok(BasicTable {
             height,
             width,
             mine_locations,
@@ -354,9 +364,13 @@ impl Table {
         })
     }
 
-    pub fn new(height: usize, width: usize, number_of_mines: usize) -> Result<Table, &'static str> {
+    pub fn new(
+        height: usize,
+        width: usize,
+        number_of_mines: usize,
+    ) -> Result<BasicTable, &'static str> {
         let mine_locations = generate_mine_locations(height, width, number_of_mines)?;
-        Table::with_custom_mines(height, width, mine_locations)
+        BasicTable::with_custom_mines(height, width, mine_locations)
     }
 
     fn get_neighbor_fields(&self, row: usize, col: usize) -> HashSet<(usize, usize)> {
@@ -470,7 +484,34 @@ impl Table {
         }
     }
 
-    pub fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+    fn count_flagged_neighbors(&self, row: usize, col: usize) -> Result<u8, &'static str> {
+        let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
+
+        visiter.extend_with_unvisited_neighbors(row, col);
+
+        let mut number_of_flagged_neighbors: u8 = 0;
+        while let Some((r, c)) = visiter.next() {
+            if row == r && col == c {
+                continue;
+            }
+            if self.fields[r][c].get_field_state() == FieldState::Flagged {
+                number_of_flagged_neighbors += 1;
+            }
+        }
+        Ok(number_of_flagged_neighbors)
+    }
+}
+
+impl Table for BasicTable {
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    fn height(&self) -> usize {
+        self.height
+    }
+
+    fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
         if row >= self.height || col >= self.width {
             return Err(INVALID_INDEX_ERROR);
         }
@@ -489,24 +530,7 @@ impl Table {
         self.execute_open(&mut visiter)
     }
 
-    fn count_flagged_neighbors(&self, row: usize, col: usize) -> Result<u8, &'static str> {
-        let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
-
-        visiter.extend_with_unvisited_neighbors(row, col);
-
-        let mut number_of_flagged_neighbors: u8 = 0;
-        while let Some((r, c)) = visiter.next() {
-            if row == r && col == c {
-                continue;
-            }
-            if self.fields[r][c].get_field_state() == FieldState::Flagged {
-                number_of_flagged_neighbors += 1;
-            }
-        }
-        Ok(number_of_flagged_neighbors)
-    }
-
-    pub fn open_neighbours(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+    fn open_neighbors(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
         if row >= self.height || col >= self.width {
             return Err(INVALID_INDEX_ERROR);
         }
@@ -530,20 +554,12 @@ impl Table {
         }
     }
 
-    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
+    fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
         if row >= self.height || col >= self.width {
             Err(INVALID_INDEX_ERROR)
         } else {
             Ok(self.fields[row][col].toggle_flag())
         }
-    }
-
-    pub fn width(&self) -> usize {
-        self.width
-    }
-
-    pub fn height(&self) -> usize {
-        self.height
     }
 }
 
@@ -568,7 +584,7 @@ mod test {
     struct TestInfo {
         height: usize,
         width: usize,
-        table: RefCell<Table>,
+        table: RefCell<BasicTable>,
         mine_locations: HashSet<(usize, usize)>,
         fields: Vec<Vec<FieldType>>,
     }
@@ -627,14 +643,14 @@ mod test {
             height,
             width,
             table: RefCell::new(
-                Table::with_custom_mines(height, width, MINE_LOCATIONS_5X6.clone()).unwrap(),
+                BasicTable::with_custom_mines(height, width, MINE_LOCATIONS_5X6.clone()).unwrap(),
             ),
             mine_locations: MINE_LOCATIONS_5X6.clone(),
             fields,
         }
     }
 
-    fn check_invalid_size_error(result: Result<Table, &'static str>) {
+    fn check_invalid_size_error(result: Result<BasicTable, &'static str>) {
         assert!(result.is_err());
         assert_eq!(INVALID_SIZE_ERROR, result.err().unwrap());
     }
@@ -678,7 +694,7 @@ mod test {
 
     fn check_height_and_width(expected_height: usize, expected_width: usize) {
         const NUMBER_OF_MINES: usize = 1;
-        let table = Table::new(expected_height, expected_width, NUMBER_OF_MINES).unwrap();
+        let table = BasicTable::new(expected_height, expected_width, NUMBER_OF_MINES).unwrap();
         assert_eq!(table.height(), expected_height);
         assert_eq!(table.width(), expected_width);
     }
@@ -810,17 +826,17 @@ mod test {
 
     #[test]
     fn create_game_with_invalid_sizes() {
-        check_invalid_size_error(Table::with_custom_mines(
+        check_invalid_size_error(BasicTable::with_custom_mines(
             usize::MAX,
             usize::MAX,
             HashSet::new(),
         ));
-        check_invalid_size_error(Table::with_custom_mines(
+        check_invalid_size_error(BasicTable::with_custom_mines(
             usize::MAX / 2 + 1,
             2,
             HashSet::new(),
         ));
-        check_invalid_size_error(Table::with_custom_mines(
+        check_invalid_size_error(BasicTable::with_custom_mines(
             usize::MAX / 5 + 4,
             5,
             HashSet::new(),
@@ -829,7 +845,7 @@ mod test {
 
     #[test]
     fn field_visiter() {
-        let table = Table::new(10, 15, 10).unwrap();
+        let table = BasicTable::new(10, 15, 10).unwrap();
         let base_row = 5;
         let base_col = 10;
         let mut visiter = FieldVisiter::new(table.height, table.width, base_row, base_col).unwrap();
@@ -1005,7 +1021,7 @@ mod test {
         let height = 5;
         for &(row, col) in MINE_LOCATIONS_5X6.iter() {
             let mut table =
-                Table::with_custom_mines(height, width, MINE_LOCATIONS_5X6.clone()).unwrap();
+                BasicTable::with_custom_mines(height, width, MINE_LOCATIONS_5X6.clone()).unwrap();
             let open_info = table.open_field(row, col).unwrap();
             assert_eq!(open_info.result, OpenResult::Ok);
             const MIN_FIELD_INFOS: usize = 1;
@@ -1014,31 +1030,31 @@ mod test {
     }
 
     #[test]
-    fn open_neighbours_of_closed_numbered() {
+    fn open_neighbors_of_closed_numbered() {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let row = 1;
         let col = 1;
         assert_eq!(test_info.fields[row][col], FieldType::Numbered(1));
-        let open_info = table.open_neighbours(row, col).unwrap();
+        let open_info = table.open_neighbors(row, col).unwrap();
         assert_eq!(open_info.result, OpenResult::Ok);
         assert_eq!(open_info.field_infos.len(), 0);
     }
 
     #[test]
-    fn open_neighbours_of_closed_empty() {
+    fn open_neighbors_of_closed_empty() {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let row = 0;
         let col = 0;
         assert_eq!(test_info.fields[row][col], FieldType::Empty);
-        let open_info = table.open_neighbours(row, col).unwrap();
+        let open_info = table.open_neighbors(row, col).unwrap();
         assert_eq!(open_info.result, OpenResult::Ok);
         assert_eq!(open_info.field_infos.len(), 0);
     }
 
     #[test]
-    fn open_neighbours_with_wrong_flag() {
+    fn open_neighbors_with_wrong_flag() {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let flag_row = 1;
@@ -1057,12 +1073,12 @@ mod test {
             simple_open_info.field_infos.get(&(open_row, open_col)),
             Some(&FieldType::Numbered(1))
         );
-        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
         check_boomed_open_info(&neighbor_open_info, &test_info);
     }
 
     #[test]
-    fn open_neighbours_with_correct_flag() {
+    fn open_neighbors_with_correct_flag() {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let flag_row = 0;
@@ -1081,7 +1097,7 @@ mod test {
             simple_open_info.field_infos.get(&(open_row, open_col)),
             Some(&FieldType::Numbered(1))
         );
-        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
         let expected_field_locations = vec![
             (0, 4),
             (0, 5),
@@ -1104,7 +1120,7 @@ mod test {
     }
 
     #[test]
-    fn open_neighbours_with_correct_flags() {
+    fn open_neighbors_with_correct_flags() {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let flag_coords = vec![(2, 2), (3, 0), (4, 1)];
@@ -1124,7 +1140,7 @@ mod test {
             simple_open_info.field_infos.get(&(open_row, open_col)),
             Some(&FieldType::Numbered(3))
         );
-        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
         let expected_field_locations = vec![(2, 0), (2, 1), (3, 2), (4, 0), (4, 2)];
 
         check_open_info(
@@ -1136,7 +1152,7 @@ mod test {
     }
 
     #[test]
-    fn open_neighbours_with_wrong_flags() {
+    fn open_neighbors_with_wrong_flags() {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let flag_coords = vec![(2, 1), (3, 2), (4, 2)];
@@ -1156,12 +1172,12 @@ mod test {
             simple_open_info.field_infos.get(&(open_row, open_col)),
             Some(&FieldType::Numbered(3))
         );
-        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
         check_boomed_open_info(&neighbor_open_info, &test_info);
     }
 
     #[test]
-    fn open_neighbours_with_not_enough_flags() {
+    fn open_neighbors_with_not_enough_flags() {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let flag_coords = vec![(2, 2), (3, 0)];
@@ -1180,7 +1196,7 @@ mod test {
             simple_open_info.field_infos.get(&(open_row, open_col)),
             Some(&FieldType::Numbered(3))
         );
-        let neighbor_open_info = table.open_neighbours(open_row, open_col).unwrap();
+        let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
         let expected_field_locations = vec![];
 
         check_open_info(
@@ -1228,11 +1244,11 @@ mod test {
     fn with_custom_mines_invalid_size() {
         const HEIGHT: usize = 4;
         const WIDTH: usize = 6;
-        let expected_error: Result<Table, &'static str> = Err(INVALID_SIZE_ERROR);
+        let expected_error: Result<BasicTable, &'static str> = Err(INVALID_SIZE_ERROR);
         {
             let mut mine_locations = HashSet::new();
             mine_locations.insert((HEIGHT - 1, WIDTH - 1));
-            let result = Table::with_custom_mines(HEIGHT, WIDTH, mine_locations);
+            let result = BasicTable::with_custom_mines(HEIGHT, WIDTH, mine_locations);
             assert!(
                 result.is_ok(),
                 "Something wrong with the initial configuration"
@@ -1241,7 +1257,7 @@ mod test {
         {
             let mut mine_locations = HashSet::new();
             mine_locations.insert((HEIGHT, WIDTH - 1));
-            let result = Table::with_custom_mines(HEIGHT, WIDTH, mine_locations);
+            let result = BasicTable::with_custom_mines(HEIGHT, WIDTH, mine_locations);
             assert_eq!(
                 expected_error, result,
                 "Mine row is too high, but not detected"
@@ -1250,7 +1266,7 @@ mod test {
         {
             let mut mine_locations = HashSet::new();
             mine_locations.insert((HEIGHT - 1, WIDTH));
-            let result = Table::with_custom_mines(HEIGHT, WIDTH, mine_locations);
+            let result = BasicTable::with_custom_mines(HEIGHT, WIDTH, mine_locations);
             assert_eq!(
                 expected_error, result,
                 "Mine col is too high, but not detected"
@@ -1259,7 +1275,7 @@ mod test {
         {
             let mut mine_locations = HashSet::new();
             mine_locations.insert((HEIGHT, WIDTH));
-            let result = Table::with_custom_mines(HEIGHT, WIDTH, mine_locations);
+            let result = BasicTable::with_custom_mines(HEIGHT, WIDTH, mine_locations);
             assert_eq!(
                 expected_error, result,
                 "Mine row and col are too high, but not detected"

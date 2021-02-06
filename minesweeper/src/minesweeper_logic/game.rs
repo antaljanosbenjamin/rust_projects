@@ -1,5 +1,5 @@
 use super::results::{FieldFlagResult, OpenInfo, OpenResult};
-use super::table::Table;
+use super::table::{BasicTable, Table};
 use hrsw::Stopwatch;
 use std::time::Duration;
 use strum_macros::Display;
@@ -23,7 +23,7 @@ enum GameState {
 }
 
 pub struct Game {
-    table: Table,
+    table: Box<dyn Table>,
     stopwatch: Stopwatch,
     state: GameState,
 }
@@ -42,12 +42,20 @@ impl Game {
         width: usize,
         number_of_mines: usize,
     ) -> Result<Game, &'static str> {
-        let table = Table::new(height, width, number_of_mines)?;
+        let table = Box::new(BasicTable::new(height, width, number_of_mines)?);
         Ok(Game {
             table,
             stopwatch: Stopwatch::new(),
             state: GameState::NotStarted,
         })
+    }
+
+    fn new_from_table(table: Box<dyn Table>) -> Game {
+        Game {
+            table,
+            stopwatch: Stopwatch::new(),
+            state: GameState::NotStarted,
+        }
     }
 
     fn start_game_if_needed(&mut self) {
@@ -68,11 +76,14 @@ impl Game {
         self.state == GameState::Started
     }
 
-    pub fn open(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+    fn execute_open(
+        &mut self,
+        open_func: impl Fn(&mut dyn Table) -> Result<OpenInfo, &'static str>,
+    ) -> Result<OpenInfo, &'static str> {
         self.start_game_if_needed();
 
         if self.is_running() {
-            let open_info = self.table.open_field(row, col)?;
+            let open_info = open_func(&mut *self.table)?;
             match open_info.result {
                 OpenResult::WINNER => {
                     self.state = GameState::Stopped { win: true };
@@ -89,6 +100,14 @@ impl Game {
         } else {
             Err(GAME_IS_ALREADY_STOPPED_ERROR)
         }
+    }
+
+    pub fn open(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+        self.execute_open(|table| table.open_field(row, col))
+    }
+
+    pub fn open_neighbors(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+        self.execute_open(|table| table.open_neighbors(row, col))
     }
 
     pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
@@ -116,7 +135,9 @@ impl Game {
 
 #[cfg(test)]
 mod test {
+    use super::super::table::MockTable;
     use super::*;
+    use std::collections::HashMap;
     use std::thread;
     use std::time::Instant;
 
@@ -134,6 +155,15 @@ mod test {
             assert!(expected_value - absolute_tolerance > value);
             assert!(expected_value + absolute_tolerance < value);
         }
+    }
+
+    fn create_default_open_result(row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+        let mut field_infos = HashMap::new();
+        field_infos.insert((row, col), crate::FieldType::Numbered(1));
+        Ok(OpenInfo {
+            result: OpenResult::Ok,
+            field_infos,
+        })
     }
 
     #[test]
@@ -162,6 +192,7 @@ mod test {
 
     #[test]
     fn boom_stops_game() {
+        let game = Game::new_from_table(Box::new(MockTable::new()));
         let width = 60;
         let height = 10;
         let number_of_not_mine_fields = height;
@@ -262,5 +293,27 @@ mod test {
         thread::sleep(Duration::from_secs_f32(0.5));
 
         assert_eq!(actual_game_time, game.get_elapsed());
+    }
+
+    #[test]
+    fn test_open_field_calls_right_function() {
+        let mut mock_table = MockTable::new();
+        mock_table
+            .expect_open_field()
+            .times(1)
+            .returning(create_default_open_result);
+        let mut game = Game::new_from_table(Box::new(mock_table));
+        let _ = game.open(1, 1);
+    }
+
+    #[test]
+    fn test_open_neighbors_calls_right_function() {
+        let mut mock_table = MockTable::new();
+        mock_table
+            .expect_open_neighbors()
+            .times(1)
+            .returning(create_default_open_result);
+        let mut game = Game::new_from_table(Box::new(mock_table));
+        let _ = game.open_neighbors(1, 1);
     }
 }
