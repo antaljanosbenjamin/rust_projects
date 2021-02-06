@@ -251,38 +251,47 @@ mod test {
 
     #[test]
     fn elapsed() {
-        let mut game = Game::new(GameLevel::Beginner);
+        const SLEEPING_MILLIS: u64 = 300;
+        let mut mock_table = MockTable::new();
+        mock_table
+            .expect_open_field()
+            .times(2)
+            .returning(create_default_open_result);
+
+        mock_table
+            .expect_open_field()
+            .times(1)
+            .returning(|row, col| {
+                let mut open_info = create_default_open_result(row, col)?;
+                open_info.result = OpenResult::WINNER;
+                Ok(open_info)
+            });
+
+        let mut game = Game::new_from_table(Box::new(mock_table));
         let first_elapsed = game.get_elapsed();
         assert_eq!(0, first_elapsed.as_nanos());
         let second_elapsed = game.get_elapsed();
         assert_eq!(0, second_elapsed.as_nanos());
+        let _ = game.open(0, 0).unwrap();
         let start_time = Instant::now();
-        game.open(0, 0).unwrap();
-        thread::sleep(Duration::from_secs(1));
-        let approximately_1_sec_in_nanos = game.get_elapsed().as_nanos() as f64;
-        let mut end_time: Option<Instant> = None;
-        for row in 0..game.height() {
-            for col in 0..game.width() {
-                match game.open(row, col) {
-                    Ok(result) => {
-                        if result.result == OpenResult::Boom || result.result == OpenResult::WINNER
-                        {
-                            end_time = Some(Instant::now());
-                            break;
-                        }
-                    }
-                    Err(_) => (),
-                }
-            }
-            if end_time.is_some() {
-                break;
-            }
-        }
 
-        let one_sec_in_nanos = Duration::from_secs(1).as_nanos() as f64;
-        check_close_to(one_sec_in_nanos, approximately_1_sec_in_nanos, 0.1);
+        thread::sleep(Duration::from_millis(SLEEPING_MILLIS));
+        let elapsed_first_checkpoint = game.get_elapsed().as_nanos() as f64;
 
-        let expected_game_time = end_time.unwrap() - start_time;
+        let _ = game.open(1, 1).unwrap();
+        thread::sleep(Duration::from_millis(SLEEPING_MILLIS));
+
+        let open_info = game.open(3, 3).unwrap();
+        let end_time = Instant::now();
+
+        assert_eq!(OpenResult::WINNER, open_info.result);
+
+        let expected_first_checkpoint = Duration::from_millis(SLEEPING_MILLIS).as_nanos() as f64;
+        check_close_to(expected_first_checkpoint, elapsed_first_checkpoint, 0.1);
+
+        thread::sleep(Duration::from_millis(SLEEPING_MILLIS));
+
+        let expected_game_time = end_time - start_time;
         let actual_game_time = game.get_elapsed();
 
         check_close_to(
@@ -290,7 +299,6 @@ mod test {
             actual_game_time.as_nanos() as f64,
             0.1,
         );
-        thread::sleep(Duration::from_secs_f32(0.5));
 
         assert_eq!(actual_game_time, game.get_elapsed());
     }
