@@ -1,5 +1,5 @@
 use libc::c_char;
-use minesweeper::{FieldFlagResult, FieldType, Game, GameLevel, OpenResult};
+use minesweeper::{FieldType, FlagResult, Game, GameLevel, OpenResult};
 use std::cmp;
 use std::convert::TryFrom;
 use std::ptr;
@@ -219,7 +219,7 @@ pub extern "C" fn minesweeper_game_toggle_flag(
     game_ptr: *mut Game,
     row: u64,
     column: u64,
-    field_flag_result_ptr: *mut FieldFlagResult,
+    field_flag_result_ptr: *mut FlagResult,
     c_ei_ptr: *mut CErrorInfo,
 ) {
     initialize_to_ok!(c_ei_ptr);
@@ -643,7 +643,7 @@ mod test {
     #[test]
     fn toggle_and_untoggle_flag() {
         let mut game_ptr = create_game(GameLevel::Beginner);
-        let mut flag_result = FieldFlagResult::AlreadyOpened;
+        let mut flag_result = FlagResult::AlreadyOpened;
         let mut buffered_error_info = create_error_info(100);
         minesweeper_game_toggle_flag(
             game_ptr,
@@ -653,7 +653,7 @@ mod test {
             &mut buffered_error_info.data,
         );
         assert_ok!(buffered_error_info.data);
-        assert_eq!(FieldFlagResult::Flagged, flag_result);
+        assert_eq!(FlagResult::Flagged, flag_result);
 
         reset_error_info(&mut buffered_error_info.data);
         minesweeper_game_toggle_flag(
@@ -664,7 +664,7 @@ mod test {
             &mut buffered_error_info.data,
         );
         assert_ok!(buffered_error_info.data);
-        assert_eq!(FieldFlagResult::FlagRemoved, flag_result);
+        assert_eq!(FlagResult::FlagRemoved, flag_result);
         destroy_game(&mut game_ptr);
     }
 
@@ -683,7 +683,7 @@ mod test {
         assert_ok!(buffered_error_info.data);
 
         reset_error_info(&mut buffered_error_info.data);
-        let mut flag_result = FieldFlagResult::AlreadyOpened;
+        let mut flag_result = FlagResult::AlreadyOpened;
         minesweeper_game_toggle_flag(
             game_ptr,
             0,
@@ -692,7 +692,7 @@ mod test {
             &mut buffered_error_info.data,
         );
         assert_ok!(buffered_error_info.data);
-        assert_eq!(FieldFlagResult::AlreadyOpened, flag_result);
+        assert_eq!(FlagResult::AlreadyOpened, flag_result);
         destroy_game(&mut game_ptr);
     }
 

@@ -4,7 +4,7 @@ use strum_macros::Display;
 
 #[repr(C)]
 #[derive(Eq, PartialEq, Display, Debug)]
-pub enum FieldFlagResult {
+pub enum FlagResult {
     Flagged,
     FlagRemoved,
     AlreadyOpened,

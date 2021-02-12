@@ -1,4 +1,4 @@
-use minesweeper::{FieldFlagResult, OpenResult};
+use minesweeper::{FlagResult, OpenResult};
 use minesweeper::{Game, GameLevel};
 
 use std::io;
@@ -101,8 +101,8 @@ fn main() {
             }
             Ok((Action::Flag, r, c)) => {
                 match g.toggle_flag(r, c).expect("Unable to toggle flag!") {
-                    FieldFlagResult::Flagged => fields[r][c] = 'F',
-                    FieldFlagResult::FlagRemoved => fields[r][c] = 'O',
+                    FlagResult::Flagged => fields[r][c] = 'F',
+                    FlagResult::FlagRemoved => fields[r][c] = 'O',
                     _ => (),
                 };
             }

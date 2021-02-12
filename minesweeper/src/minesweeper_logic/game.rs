@@ -1,4 +1,4 @@
-use super::results::{FieldFlagResult, OpenInfo, OpenResult};
+use super::results::{FlagResult, OpenInfo, OpenResult};
 use super::table::{BasicTable, Table};
 use hrsw::Stopwatch;
 use std::time::Duration;
@@ -110,7 +110,7 @@ impl Game {
         self.execute_open(|table| table.open_neighbors(row, col))
     }
 
-    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
+    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FlagResult, &'static str> {
         self.start_game_if_needed();
 
         if self.is_running() {
@@ -229,22 +229,16 @@ mod test {
         let height = 10;
         let number_of_mines = 10 * 10 - 2;
         let mut game = Game::new_custom(height, width, number_of_mines).unwrap();
-        assert_eq!(FieldFlagResult::Flagged, game.toggle_flag(0, 0).unwrap());
-        assert_eq!(
-            FieldFlagResult::FlagRemoved,
-            game.toggle_flag(0, 0).unwrap()
-        );
+        assert_eq!(FlagResult::Flagged, game.toggle_flag(0, 0).unwrap());
+        assert_eq!(FlagResult::FlagRemoved, game.toggle_flag(0, 0).unwrap());
         game.open(0, 0).unwrap();
+        assert_eq!(FlagResult::AlreadyOpened, game.toggle_flag(0, 0).unwrap());
         assert_eq!(
-            FieldFlagResult::AlreadyOpened,
-            game.toggle_flag(0, 0).unwrap()
-        );
-        assert_eq!(
-            FieldFlagResult::Flagged,
+            FlagResult::Flagged,
             game.toggle_flag(height - 1, width - 1).unwrap()
         );
         assert_eq!(
-            FieldFlagResult::FlagRemoved,
+            FlagResult::FlagRemoved,
             game.toggle_flag(height - 1, width - 1).unwrap()
         );
     }

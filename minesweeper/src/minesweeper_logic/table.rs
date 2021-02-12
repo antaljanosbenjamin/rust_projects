@@ -1,5 +1,5 @@
 use super::field_type::FieldType;
-use super::results::{FieldFlagResult, OpenInfo, OpenResult};
+use super::results::{FlagResult, OpenInfo, OpenResult};
 use indexmap::IndexSet;
 use mockall::automock;
 use std::collections::{HashMap, HashSet};
@@ -42,7 +42,7 @@ pub trait Table {
     fn height(&self) -> usize;
     fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str>;
     fn open_neighbors(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str>;
-    fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str>;
+    fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FlagResult, &'static str>;
 }
 
 #[derive(Eq, PartialEq, Display, Debug)]
@@ -136,16 +136,16 @@ impl FieldInner {
         }
     }
 
-    fn toggle_flag(&mut self) -> FieldFlagResult {
+    fn toggle_flag(&mut self) -> FlagResult {
         if self.state.is_flagged() {
             self.state = FieldState::Closed;
-            FieldFlagResult::FlagRemoved
+            FlagResult::FlagRemoved
         } else {
             if !self.get_field_state().is_opened() {
                 self.state = FieldState::Flagged;
-                FieldFlagResult::Flagged
+                FlagResult::Flagged
             } else {
-                FieldFlagResult::AlreadyOpened
+                FlagResult::AlreadyOpened
             }
         }
     }
@@ -554,7 +554,7 @@ impl Table for BasicTable {
         }
     }
 
-    fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FieldFlagResult, &'static str> {
+    fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FlagResult, &'static str> {
         if row >= self.height || col >= self.width {
             Err(INVALID_INDEX_ERROR)
         } else {
@@ -976,9 +976,9 @@ mod test {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let flag_result = table.toggle_flag(0, 1).unwrap();
-        assert_eq!(FieldFlagResult::Flagged, flag_result);
+        assert_eq!(FlagResult::Flagged, flag_result);
         let unflag_result = table.toggle_flag(0, 1).unwrap();
-        assert_eq!(FieldFlagResult::FlagRemoved, unflag_result);
+        assert_eq!(FlagResult::FlagRemoved, unflag_result);
     }
 
     #[test]
@@ -986,7 +986,7 @@ mod test {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let toggle_result = table.toggle_flag(1, 1).unwrap();
-        assert_eq!(FieldFlagResult::Flagged, toggle_result);
+        assert_eq!(FlagResult::Flagged, toggle_result);
         let open_result = table.open_field(1, 1).unwrap();
         assert_eq!(OpenResult::IsFlagged, open_result.result);
         assert_eq!(0, open_result.field_infos.len());
@@ -997,7 +997,7 @@ mod test {
         let test_info = create_test_info_5x6();
         let mut table = test_info.table.borrow_mut();
         let toggle_result = table.toggle_flag(0, 1).unwrap();
-        assert_eq!(FieldFlagResult::Flagged, toggle_result);
+        assert_eq!(FlagResult::Flagged, toggle_result);
         let open_result = table.open_field(1, 0).unwrap();
         assert_eq!(OpenResult::Ok, open_result.result);
         let field_infos = &open_result.field_infos;
@@ -1061,7 +1061,7 @@ mod test {
         let flag_col = 3;
         assert_ne!(test_info.fields[flag_row][flag_col], FieldType::Mine);
         let flag_result = table.toggle_flag(flag_row, flag_col).unwrap();
-        assert_eq!(flag_result, FieldFlagResult::Flagged);
+        assert_eq!(flag_result, FlagResult::Flagged);
 
         let open_row = 1;
         let open_col = 4;
@@ -1085,7 +1085,7 @@ mod test {
         let flag_col = 3;
         assert_eq!(test_info.fields[flag_row][flag_col], FieldType::Mine);
         let flag_result = table.toggle_flag(flag_row, flag_col).unwrap();
-        assert_eq!(flag_result, FieldFlagResult::Flagged);
+        assert_eq!(flag_result, FlagResult::Flagged);
 
         let open_row = 1;
         let open_col = 4;
@@ -1127,7 +1127,7 @@ mod test {
         for (r, c) in flag_coords {
             assert_eq!(test_info.fields[r][c], FieldType::Mine);
             let flag_result = table.toggle_flag(r, c).unwrap();
-            assert_eq!(flag_result, FieldFlagResult::Flagged);
+            assert_eq!(flag_result, FlagResult::Flagged);
         }
 
         let open_row = 3;
@@ -1159,7 +1159,7 @@ mod test {
         for (r, c) in flag_coords {
             assert_ne!(test_info.fields[r][c], FieldType::Mine);
             let flag_result = table.toggle_flag(r, c).unwrap();
-            assert_eq!(flag_result, FieldFlagResult::Flagged);
+            assert_eq!(flag_result, FlagResult::Flagged);
         }
 
         let open_row = 3;
@@ -1183,7 +1183,7 @@ mod test {
         let flag_coords = vec![(2, 2), (3, 0)];
         for (r, c) in flag_coords {
             let flag_result = table.toggle_flag(r, c).unwrap();
-            assert_eq!(flag_result, FieldFlagResult::Flagged);
+            assert_eq!(flag_result, FlagResult::Flagged);
         }
 
         let open_row = 3;
