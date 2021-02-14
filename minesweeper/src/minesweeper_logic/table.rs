@@ -187,18 +187,14 @@ impl FieldVisiter {
         row: SizeType,
         col: SizeType,
     ) -> Result<FieldVisiter, &'static str> {
-        if row >= height || col >= width {
-            Err(INVALID_INDEX_ERROR)
-        } else {
-            let mut fields_to_visit = IndexSet::new();
-            fields_to_visit.insert((row, col));
-            Ok(FieldVisiter {
-                height,
-                width,
-                fields_to_visit,
-                visited_fields: HashSet::new(),
-            })
-        }
+        let mut fields_to_visit = IndexSet::new();
+        fields_to_visit.insert((row, col));
+        Ok(FieldVisiter {
+            height,
+            width,
+            fields_to_visit,
+            visited_fields: HashSet::new(),
+        })
     }
 
     fn extend_with_unvisited_neighbors(&mut self, row: SizeType, col: SizeType) {
@@ -530,6 +526,14 @@ impl BasicTable {
         }
         Ok(number_of_flagged_neighbors)
     }
+
+    fn validate_indices(&self, row: SizeType, col: SizeType) -> Result<(), &'static str> {
+        if row < 0 || row >= self.height || col < 0 || col >= self.width {
+            Err(INVALID_INDEX_ERROR)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl Table for BasicTable {
@@ -542,9 +546,8 @@ impl Table for BasicTable {
     }
 
     fn open_field(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str> {
-        if row >= self.height || col >= self.width {
-            return Err(INVALID_INDEX_ERROR);
-        }
+        self.validate_indices(row, col)?;
+
         if self.fields[row as usize][col as usize]
             .get_field_state()
             .is_flagged()
@@ -566,9 +569,7 @@ impl Table for BasicTable {
     }
 
     fn open_neighbors(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str> {
-        if row >= self.height || col >= self.width {
-            return Err(INVALID_INDEX_ERROR);
-        }
+        self.validate_indices(row, col)?;
 
         let empty_open_info = OpenInfo {
             result: OpenResult::Ok,
@@ -593,11 +594,9 @@ impl Table for BasicTable {
     }
 
     fn toggle_flag(&mut self, row: SizeType, col: SizeType) -> Result<FlagResult, &'static str> {
-        if row >= self.height || col >= self.width {
-            Err(INVALID_INDEX_ERROR)
-        } else {
-            Ok(self.fields[row as usize][col as usize].toggle_flag())
-        }
+        self.validate_indices(row, col)?;
+
+        Ok(self.fields[row as usize][col as usize].toggle_flag())
     }
 }
 
