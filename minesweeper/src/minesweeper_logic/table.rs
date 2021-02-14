@@ -1331,5 +1331,34 @@ mod test {
             );
         }
     }
+    #[test]
+    fn invalid_index_error() {
+        const HEIGHT: SizeType = 4;
+        const WIDTH: SizeType = 6;
+        const NUMBER_OF_MINES: SizeType = 10;
+        let expected_open_error: Result<OpenInfo, &'static str> = Err(INVALID_INDEX_ERROR);
+        let expected_flag_error: Result<FlagResult, &'static str> = Err(INVALID_INDEX_ERROR);
+        let mut game = BasicTable::new(HEIGHT, WIDTH, NUMBER_OF_MINES).unwrap();
+        let mut check_indices = |row, col, message| {
+            let open_result = game.open_field(row, col);
+            assert_eq!(expected_open_error, open_result, "{} open_field", message);
+            let open_neighbors_result = game.open_neighbors(row, col);
+            assert_eq!(
+                expected_open_error, open_neighbors_result,
+                "{} open_neighbors",
+                message
+            );
+            let flag_result = game.toggle_flag(row, col);
+            assert_eq!(expected_flag_error, flag_result, "{} toggle_flag", message);
+        };
+        const GOOD_INDEX: SizeType = 1;
+        check_indices(HEIGHT, GOOD_INDEX, "Exact height");
+        check_indices(GOOD_INDEX, WIDTH, "Exact width");
+        check_indices(HEIGHT, WIDTH, "Exact both");
+        check_indices(-1, GOOD_INDEX, "Negative height");
+        check_indices(GOOD_INDEX, -1, "Negative width");
+        check_indices(-1, -1, "Negative both");
+    }
+
     // TODO Write test to full game
 }

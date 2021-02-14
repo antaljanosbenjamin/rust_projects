@@ -20,6 +20,7 @@ pub enum OpenResult {
     WINNER,
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub struct OpenInfo {
     pub result: OpenResult,
     pub field_infos: HashMap<(SizeType, SizeType), FieldType>,
