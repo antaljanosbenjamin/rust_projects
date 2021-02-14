@@ -290,18 +290,13 @@ fn get_neighbor_fields(
     row: SizeType,
     col: SizeType,
 ) -> HashSet<(SizeType, SizeType)> {
-    fn add(u: SizeType, i: i8) -> Option<SizeType> {
-        if i.is_negative() {
-            u.checked_sub(i.abs() as u8 as SizeType)
-        } else {
-            u.checked_add(i as SizeType)
-        }
-    };
-
     let mut neighbors = HashSet::new();
 
     for offset in &NEIGHBOR_OFFSETS {
-        match (add(row, offset.0), add(col, offset.1)) {
+        match (
+            row.checked_add(offset.0 as i64),
+            col.checked_add(offset.1 as i64),
+        ) {
             (Some(r), Some(c)) if r >= 0 && r < height && c >= 0 && c < width => {
                 neighbors.insert((r, c));
             }
