@@ -292,7 +292,7 @@ fn get_neighbor_fields(
 ) -> HashSet<(SizeType, SizeType)> {
     fn add(u: SizeType, i: i8) -> Option<SizeType> {
         if i.is_negative() {
-            u.checked_sub(i.wrapping_abs() as u8 as SizeType)
+            u.checked_sub(i.abs() as u8 as SizeType)
         } else {
             u.checked_add(i as SizeType)
         }
