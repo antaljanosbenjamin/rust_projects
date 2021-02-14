@@ -1,3 +1,4 @@
+use super::basic_types::SizeType;
 use super::field_type::FieldType;
 use std::collections::HashMap;
 use strum_macros::Display;
@@ -21,5 +22,5 @@ pub enum OpenResult {
 
 pub struct OpenInfo {
     pub result: OpenResult,
-    pub field_infos: HashMap<(usize, usize), FieldType>,
+    pub field_infos: HashMap<(SizeType, SizeType), FieldType>,
 }

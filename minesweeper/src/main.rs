@@ -1,10 +1,9 @@
-use minesweeper::{FlagResult, OpenResult};
-use minesweeper::{Game, GameLevel};
+use minesweeper::{FlagResult, Game, GameLevel, OpenResult, SizeType};
 
 use std::io;
 use std::vec::Vec;
 
-fn create_empty_field(width: usize, height: usize) -> Vec<Vec<char>> {
+fn create_empty_field(width: SizeType, height: SizeType) -> Vec<Vec<char>> {
     let mut fields = Vec::new();
     for _r in 0..height {
         let mut row = Vec::new();
@@ -56,7 +55,7 @@ fn main() {
     while last_result != OpenResult::WINNER && last_result != OpenResult::Boom {
         print_fields(&fields);
 
-        let read_input = || -> Result<(Action, usize, usize), &'static str> {
+        let read_input = || -> Result<(Action, SizeType, SizeType), &'static str> {
             println!("Please type your next move (<o|f> <row> <column>): ");
             let mut input = String::new();
             io::stdin()
@@ -75,11 +74,11 @@ fn main() {
                 'f' => Action::Flag,
                 _ => return Err("The possible actions are *o*pen and *f*lag!"),
             };
-            let row_result = inputs[1].trim().parse::<usize>();
+            let row_result = inputs[1].trim().parse::<SizeType>();
             if !row_result.is_ok() {
                 return Err("Row id is not parsable!");
             }
-            let col_result = inputs[2].trim().parse::<usize>();
+            let col_result = inputs[2].trim().parse::<SizeType>();
             if !col_result.is_ok() {
                 return Err("Col id is not parsable!");
             }
@@ -95,14 +94,14 @@ fn main() {
             Ok((Action::Open, r, c)) => {
                 let open_result = g.open(r, c).expect("Unable to open field");
                 for (coords, field_type) in &open_result.field_infos {
-                    fields[coords.0][coords.1] = field_type.get_char_repr();
+                    fields[coords.0 as usize][coords.1 as usize] = field_type.get_char_repr();
                 }
                 last_result = open_result.result;
             }
             Ok((Action::Flag, r, c)) => {
                 match g.toggle_flag(r, c).expect("Unable to toggle flag!") {
-                    FlagResult::Flagged => fields[r][c] = 'F',
-                    FlagResult::FlagRemoved => fields[r][c] = 'O',
+                    FlagResult::Flagged => fields[r as usize][c as usize] = 'F',
+                    FlagResult::FlagRemoved => fields[r as usize][c as usize] = 'O',
                     _ => (),
                 };
             }

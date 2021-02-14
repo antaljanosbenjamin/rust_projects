@@ -1,3 +1,4 @@
+use super::basic_types::SizeType;
 use super::results::{FlagResult, OpenInfo, OpenResult};
 use super::table::{BasicTable, Table};
 use hrsw::Stopwatch;
@@ -38,9 +39,9 @@ impl Game {
     }
 
     pub fn new_custom(
-        height: usize,
-        width: usize,
-        number_of_mines: usize,
+        height: SizeType,
+        width: SizeType,
+        number_of_mines: SizeType,
     ) -> Result<Game, &'static str> {
         let table = Box::new(BasicTable::new(height, width, number_of_mines)?);
         Ok(Game {
@@ -50,6 +51,7 @@ impl Game {
         })
     }
 
+    #[allow(dead_code)]
     fn new_from_table(table: Box<dyn Table>) -> Game {
         Game {
             table,
@@ -102,15 +104,23 @@ impl Game {
         }
     }
 
-    pub fn open(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+    pub fn open(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str> {
         self.execute_open(|table| table.open_field(row, col))
     }
 
-    pub fn open_neighbors(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+    pub fn open_neighbors(
+        &mut self,
+        row: SizeType,
+        col: SizeType,
+    ) -> Result<OpenInfo, &'static str> {
         self.execute_open(|table| table.open_neighbors(row, col))
     }
 
-    pub fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FlagResult, &'static str> {
+    pub fn toggle_flag(
+        &mut self,
+        row: SizeType,
+        col: SizeType,
+    ) -> Result<FlagResult, &'static str> {
         self.start_game_if_needed();
 
         if self.is_running() {
@@ -120,11 +130,11 @@ impl Game {
         }
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> SizeType {
         self.table.width()
     }
 
-    pub fn height(&self) -> usize {
+    pub fn height(&self) -> SizeType {
         self.table.height()
     }
 
@@ -157,7 +167,7 @@ mod test {
         }
     }
 
-    fn create_default_open_result(row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+    fn create_default_open_result(row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str> {
         let mut field_infos = HashMap::new();
         field_infos.insert((row, col), crate::FieldType::Numbered(1));
         Ok(OpenInfo {
@@ -192,7 +202,6 @@ mod test {
 
     #[test]
     fn boom_stops_game() {
-        let game = Game::new_from_table(Box::new(MockTable::new()));
         let width = 60;
         let height = 10;
         let number_of_not_mine_fields = height;

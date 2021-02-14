@@ -1,3 +1,4 @@
+use super::basic_types::SizeType;
 use super::field_type::FieldType;
 use super::results::{FlagResult, OpenInfo, OpenResult};
 use indexmap::IndexSet;
@@ -7,7 +8,8 @@ use strum_macros::Display;
 
 static INVALID_VALUE_ERROR: &'static str = "Invalid value!";
 static INVALID_INDEX_ERROR: &'static str = "Invalid index!";
-static INVALID_SIZE_ERROR: &'static str = "Invalid size!";
+static INVALID_MINE_LOCATIONS: &'static str = "Invalid mine locations!";
+static TOO_MUCH_FIELDS: &'static str = "Too much fields!";
 static TOO_MUCH_MINES_ERROR: &'static str = "Too much mines!";
 static TOO_FEW_MINES_ERROR: &'static str = "Too few mines!";
 static MINE_DOES_NOT_HAVE_VALUE_ERROR: &'static str = "Mine does not have value!";
@@ -38,11 +40,11 @@ trait Field {
 
 #[automock]
 pub trait Table {
-    fn width(&self) -> usize;
-    fn height(&self) -> usize;
-    fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str>;
-    fn open_neighbors(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str>;
-    fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FlagResult, &'static str>;
+    fn width(&self) -> SizeType;
+    fn height(&self) -> SizeType;
+    fn open_field(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str>;
+    fn open_neighbors(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str>;
+    fn toggle_flag(&mut self, row: SizeType, col: SizeType) -> Result<FlagResult, &'static str>;
 }
 
 #[derive(Eq, PartialEq, Display, Debug)]
@@ -172,18 +174,18 @@ impl Field for FieldInner {
 }
 
 struct FieldVisiter {
-    height: usize,
-    width: usize,
-    fields_to_visit: IndexSet<(usize, usize)>,
-    visited_fields: HashSet<(usize, usize)>,
+    height: SizeType,
+    width: SizeType,
+    fields_to_visit: IndexSet<(SizeType, SizeType)>,
+    visited_fields: HashSet<(SizeType, SizeType)>,
 }
 
 impl FieldVisiter {
     fn new(
-        height: usize,
-        width: usize,
-        row: usize,
-        col: usize,
+        height: SizeType,
+        width: SizeType,
+        row: SizeType,
+        col: SizeType,
     ) -> Result<FieldVisiter, &'static str> {
         if row >= height || col >= width {
             Err(INVALID_INDEX_ERROR)
@@ -199,8 +201,8 @@ impl FieldVisiter {
         }
     }
 
-    fn extend_with_unvisited_neighbors(&mut self, row: usize, col: usize) {
-        let fields_to_extend: HashSet<(usize, usize)> =
+    fn extend_with_unvisited_neighbors(&mut self, row: SizeType, col: SizeType) {
+        let fields_to_extend: HashSet<(SizeType, SizeType)> =
             get_neighbor_fields(self.height, self.width, row, col)
                 .difference(&self.visited_fields)
                 .cloned()
@@ -209,7 +211,7 @@ impl FieldVisiter {
     }
 
     // This can be rewritten as an Iterator?
-    fn next(&mut self) -> Option<(usize, usize)> {
+    fn next(&mut self) -> Option<(SizeType, SizeType)> {
         if !self.fields_to_visit.is_empty() {
             let result = self.fields_to_visit.pop().unwrap();
             self.visited_fields.insert(result);
@@ -231,42 +233,68 @@ const NEIGHBOR_OFFSETS: [(i8, i8); 8] = [
     (1, 1),
 ];
 
-fn generate_mine_locations(
-    height: usize,
-    width: usize,
-    number_of_mines: usize,
-) -> Result<HashSet<(usize, usize)>, &'static str> {
-    let max_number_of_mines = (width * height - 1) as usize;
+fn check_number_of_fields(height: SizeType, width: SizeType) -> Result<(), &'static str> {
+    let numnber_of_fields = match width.checked_mul(height) {
+        Some(x) => x,
+        _ => return Err(TOO_MUCH_FIELDS),
+    };
+
+    // range is always -(2^X) ... 2^X-1, so abs(SizeType::MIN) > SizeType::MAX,
+    // therefore this will also make sure the remaining mine count wont be too less
+    let max_number_of_fields = SizeType::MAX;
+
+    if max_number_of_fields < numnber_of_fields {
+        Err(TOO_MUCH_FIELDS)
+    } else {
+        Ok(())
+    }
+}
+
+fn check_sizes(
+    height: SizeType,
+    width: SizeType,
+    number_of_mines: SizeType,
+) -> Result<(), &'static str> {
+    check_number_of_fields(height, width)?;
+
+    let max_number_of_mines = width * height - 1 as SizeType;
     let min_number_of_mines = 1;
 
     if max_number_of_mines < number_of_mines {
-        return Err(TOO_MUCH_MINES_ERROR);
+        Err(TOO_MUCH_MINES_ERROR)
+    } else if min_number_of_mines > number_of_mines {
+        Err(TOO_FEW_MINES_ERROR)
+    } else {
+        Ok(())
     }
-    if min_number_of_mines > number_of_mines {
-        return Err(TOO_FEW_MINES_ERROR);
-    }
+}
 
+fn generate_mine_locations(
+    height: SizeType,
+    width: SizeType,
+    number_of_mines: SizeType,
+) -> Result<HashSet<(SizeType, SizeType)>, &'static str> {
     let mut mine_locations = HashSet::new();
-    while (mine_locations.len() as usize) < number_of_mines {
+    while (mine_locations.len() as SizeType) < number_of_mines {
         mine_locations.insert((
-            rand::random::<usize>() % height,
-            rand::random::<usize>() % width,
+            rand::random::<SizeType>().abs() % height,
+            rand::random::<SizeType>().abs() % width,
         ));
     }
     Ok(mine_locations)
 }
 
 fn get_neighbor_fields(
-    height: usize,
-    width: usize,
-    row: usize,
-    col: usize,
-) -> HashSet<(usize, usize)> {
-    fn add(u: usize, i: i8) -> Option<usize> {
+    height: SizeType,
+    width: SizeType,
+    row: SizeType,
+    col: SizeType,
+) -> HashSet<(SizeType, SizeType)> {
+    fn add(u: SizeType, i: i8) -> Option<SizeType> {
         if i.is_negative() {
-            u.checked_sub(i.wrapping_abs() as u8 as usize)
+            u.checked_sub(i.wrapping_abs() as u8 as SizeType)
         } else {
-            u.checked_add(i as usize)
+            u.checked_add(i as SizeType)
         }
     };
 
@@ -274,7 +302,7 @@ fn get_neighbor_fields(
 
     for offset in &NEIGHBOR_OFFSETS {
         match (add(row, offset.0), add(col, offset.1)) {
-            (Some(r), Some(c)) if r < height && c < width => {
+            (Some(r), Some(c)) if r >= 0 && r < height && c >= 0 && c < width => {
                 neighbors.insert((r, c));
             }
             _ => (),
@@ -285,11 +313,11 @@ fn get_neighbor_fields(
 }
 
 fn get_field_value(
-    height: usize,
-    width: usize,
-    row: usize,
-    col: usize,
-    mine_locations: &HashSet<(usize, usize)>,
+    height: SizeType,
+    width: SizeType,
+    row: SizeType,
+    col: SizeType,
+    mine_locations: &HashSet<(SizeType, SizeType)>,
 ) -> Result<u8, &'static str> {
     if mine_locations.contains(&(row, col)) {
         return Err(MINE_DOES_NOT_HAVE_VALUE_ERROR);
@@ -306,9 +334,9 @@ fn get_field_value(
 }
 
 fn generate_fields(
-    height: usize,
-    width: usize,
-    mine_locations: &HashSet<(usize, usize)>,
+    height: SizeType,
+    width: SizeType,
+    mine_locations: &HashSet<(SizeType, SizeType)>,
 ) -> Result<Vec<Vec<FieldInner>>, &'static str> {
     let mut fields = Vec::new();
 
@@ -333,25 +361,26 @@ fn generate_fields(
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct BasicTable {
-    height: usize,
-    width: usize,
-    mine_locations: HashSet<(usize, usize)>,
-    number_of_opened_fields: usize,
+    height: SizeType,
+    width: SizeType,
+    mine_locations: HashSet<(SizeType, SizeType)>,
+    number_of_opened_fields: SizeType,
     fields: Vec<Vec<FieldInner>>,
 }
 
 impl BasicTable {
     fn with_custom_mines(
-        height: usize,
-        width: usize,
-        mine_locations: HashSet<(usize, usize)>,
+        height: SizeType,
+        width: SizeType,
+        mine_locations: HashSet<(SizeType, SizeType)>,
     ) -> Result<BasicTable, &'static str> {
-        if width.checked_mul(height).is_none()
-            || mine_locations
-                .iter()
-                .any(|&(row, col)| row >= height || col >= width)
+        check_sizes(height, width, mine_locations.len() as SizeType)?;
+
+        if mine_locations
+            .iter()
+            .any(|&(row, col)| row >= height || col >= width)
         {
-            return Err(INVALID_SIZE_ERROR);
+            return Err(INVALID_MINE_LOCATIONS);
         }
 
         let fields = generate_fields(height, width, &mine_locations)?;
@@ -365,42 +394,45 @@ impl BasicTable {
     }
 
     pub fn new(
-        height: usize,
-        width: usize,
-        number_of_mines: usize,
+        height: SizeType,
+        width: SizeType,
+        number_of_mines: SizeType,
     ) -> Result<BasicTable, &'static str> {
         let mine_locations = generate_mine_locations(height, width, number_of_mines)?;
         BasicTable::with_custom_mines(height, width, mine_locations)
     }
 
-    fn get_neighbor_fields(&self, row: usize, col: usize) -> HashSet<(usize, usize)> {
+    fn get_neighbor_fields(&self, row: SizeType, col: SizeType) -> HashSet<(SizeType, SizeType)> {
         get_neighbor_fields(self.height, self.width, row, col)
     }
 
-    fn get_field_value(&self, row: usize, col: usize) -> Result<u8, &'static str> {
+    fn get_field_value(&self, row: SizeType, col: SizeType) -> Result<u8, &'static str> {
         get_field_value(self.height, self.width, row, col, &self.mine_locations)
     }
 
     fn all_fields_are_open(&self) -> bool {
-        self.width * self.height == self.mine_locations.len() + self.number_of_opened_fields
+        self.width.checked_mul(self.height)
+            == (self.mine_locations.len() as SizeType).checked_add(self.number_of_opened_fields)
     }
 
-    fn move_mine(&mut self, row: usize, col: usize) -> Result<(), &'static str> {
-        if self.fields[row][col].field_type.is_mine() {
+    fn move_mine(&mut self, row: SizeType, col: SizeType) -> Result<(), &'static str> {
+        if self.fields[row as usize][col as usize].field_type.is_mine() {
             let mut new_place = (0, 0);
             let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
             while let Some((r, c)) = visiter.next() {
-                if !self.fields[r][c].field_type.is_mine() {
+                if !self.fields[r as usize][c as usize].field_type.is_mine() {
                     new_place = (r, c);
                     break;
                 }
                 visiter.extend_with_unvisited_neighbors(r, c);
             }
 
-            self.fields[new_place.0][new_place.1]
+            self.fields[new_place.0 as usize][new_place.1 as usize]
                 .update_type_to_mine()
                 .unwrap();
-            self.fields[row][col].update_type_to_empty().unwrap();
+            self.fields[row as usize][col as usize]
+                .update_type_to_empty()
+                .unwrap();
             self.mine_locations.remove(&(row, col));
             self.mine_locations.insert(new_place);
             let mut fields_to_recalculate = HashSet::new();
@@ -411,11 +443,13 @@ impl BasicTable {
             );
             fields_to_recalculate.insert((row, col));
             for (r, c) in fields_to_recalculate {
-                if !self.fields[r][c].field_type.is_mine() {
+                if !self.fields[r as usize][c as usize].field_type.is_mine() {
                     let field_value = self.get_field_value(r, c).unwrap();
                     match field_value {
-                        0 => self.fields[r][c].update_type_to_empty().unwrap(),
-                        _ => self.fields[r][c]
+                        0 => self.fields[r as usize][c as usize]
+                            .update_type_to_empty()
+                            .unwrap(),
+                        _ => self.fields[r as usize][c as usize]
                             .update_type_with_value(field_value)
                             .unwrap(),
                     };
@@ -433,9 +467,10 @@ impl BasicTable {
         };
         for row in 0..self.height {
             for column in 0..self.width {
-                boom_result
-                    .field_infos
-                    .insert((row, column), self.fields[row][column].get_field_type());
+                boom_result.field_infos.insert(
+                    (row, column),
+                    self.fields[row as usize][column as usize].get_field_type(),
+                );
             }
         }
         boom_result
@@ -446,7 +481,7 @@ impl BasicTable {
         let mut has_boomed = false;
 
         while let Some((r, c)) = visiter.next() {
-            match self.fields[r][c].open() {
+            match self.fields[r as usize][c as usize].open() {
                 FieldOpenResult::MultiOpen => {
                     self.number_of_opened_fields = self.number_of_opened_fields + 1;
                     visiter.extend_with_unvisited_neighbors(r, c);
@@ -458,7 +493,7 @@ impl BasicTable {
                 _ => continue,
             };
 
-            field_infos.insert((r, c), self.fields[r][c].get_field_type());
+            field_infos.insert((r, c), self.fields[r as usize][c as usize].get_field_type());
         }
 
         if has_boomed {
@@ -469,7 +504,7 @@ impl BasicTable {
             for mine_coords in &self.mine_locations {
                 field_infos.insert(
                     (mine_coords.0, mine_coords.1),
-                    self.fields[mine_coords.0][mine_coords.1].get_field_type(),
+                    self.fields[mine_coords.0 as usize][mine_coords.1 as usize].get_field_type(),
                 );
             }
             Ok(OpenInfo {
@@ -484,7 +519,7 @@ impl BasicTable {
         }
     }
 
-    fn count_flagged_neighbors(&self, row: usize, col: usize) -> Result<u8, &'static str> {
+    fn count_flagged_neighbors(&self, row: SizeType, col: SizeType) -> Result<u8, &'static str> {
         let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
 
         visiter.extend_with_unvisited_neighbors(row, col);
@@ -494,7 +529,7 @@ impl BasicTable {
             if row == r && col == c {
                 continue;
             }
-            if self.fields[r][c].get_field_state() == FieldState::Flagged {
+            if self.fields[r as usize][c as usize].get_field_state() == FieldState::Flagged {
                 number_of_flagged_neighbors += 1;
             }
         }
@@ -503,26 +538,31 @@ impl BasicTable {
 }
 
 impl Table for BasicTable {
-    fn width(&self) -> usize {
+    fn width(&self) -> SizeType {
         self.width
     }
 
-    fn height(&self) -> usize {
+    fn height(&self) -> SizeType {
         self.height
     }
 
-    fn open_field(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+    fn open_field(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str> {
         if row >= self.height || col >= self.width {
             return Err(INVALID_INDEX_ERROR);
         }
-        if self.fields[row][col].get_field_state().is_flagged() {
+        if self.fields[row as usize][col as usize]
+            .get_field_state()
+            .is_flagged()
+        {
             return Ok(OpenInfo {
                 result: OpenResult::IsFlagged,
                 field_infos: HashMap::new(),
             });
         }
 
-        if self.number_of_opened_fields == 0 && self.fields[row][col].field_type.is_mine() {
+        if self.number_of_opened_fields == 0
+            && self.fields[row as usize][col as usize].field_type.is_mine()
+        {
             self.move_mine(row, col)?;
         }
 
@@ -530,7 +570,7 @@ impl Table for BasicTable {
         self.execute_open(&mut visiter)
     }
 
-    fn open_neighbors(&mut self, row: usize, col: usize) -> Result<OpenInfo, &'static str> {
+    fn open_neighbors(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str> {
         if row >= self.height || col >= self.width {
             return Err(INVALID_INDEX_ERROR);
         }
@@ -540,11 +580,14 @@ impl Table for BasicTable {
             field_infos: HashMap::new(),
         };
 
-        if !self.fields[row][col].get_field_state().is_opened() {
+        if !self.fields[row as usize][col as usize]
+            .get_field_state()
+            .is_opened()
+        {
             return Ok(empty_open_info);
         }
 
-        match self.fields[row][col].get_field_type() {
+        match self.fields[row as usize][col as usize].get_field_type() {
             FieldType::Numbered(x) if x == self.count_flagged_neighbors(row, col)? => {
                 let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
                 visiter.extend_with_unvisited_neighbors(row, col);
@@ -554,11 +597,11 @@ impl Table for BasicTable {
         }
     }
 
-    fn toggle_flag(&mut self, row: usize, col: usize) -> Result<FlagResult, &'static str> {
+    fn toggle_flag(&mut self, row: SizeType, col: SizeType) -> Result<FlagResult, &'static str> {
         if row >= self.height || col >= self.width {
             Err(INVALID_INDEX_ERROR)
         } else {
-            Ok(self.fields[row][col].toggle_flag())
+            Ok(self.fields[row as usize][col as usize].toggle_flag())
         }
     }
 }
@@ -570,7 +613,7 @@ mod test {
     use std::cell::RefCell;
 
     lazy_static! {
-        static ref MINE_LOCATIONS_5X6: HashSet<(usize, usize)> = {
+        static ref MINE_LOCATIONS_5X6: HashSet<(SizeType, SizeType)> = {
             let mut mine_locations = HashSet::new();
             mine_locations.insert((0, 3));
             mine_locations.insert((3, 0));
@@ -582,10 +625,10 @@ mod test {
     }
 
     struct TestInfo {
-        height: usize,
-        width: usize,
+        height: SizeType,
+        width: SizeType,
         table: RefCell<BasicTable>,
-        mine_locations: HashSet<(usize, usize)>,
+        mine_locations: HashSet<(SizeType, SizeType)>,
         fields: Vec<Vec<FieldType>>,
     }
 
@@ -650,9 +693,9 @@ mod test {
         }
     }
 
-    fn check_invalid_size_error(result: Result<BasicTable, &'static str>) {
+    fn check_too_much_fields_error(result: Result<BasicTable, &'static str>) {
         assert!(result.is_err());
-        assert_eq!(INVALID_SIZE_ERROR, result.err().unwrap());
+        assert_eq!(TOO_MUCH_FIELDS, result.err().unwrap());
     }
 
     fn check_invalid_value_error(result: Result<FieldInner, &'static str>) {
@@ -668,7 +711,7 @@ mod test {
     fn check_open_info(
         open_info: &OpenInfo,
         expected_result: &OpenResult,
-        expected_fields: &Vec<(usize, usize)>,
+        expected_fields: &Vec<(SizeType, SizeType)>,
         test_field_infos: &Vec<Vec<FieldType>>,
     ) {
         assert_eq!(open_info.result, *expected_result);
@@ -676,7 +719,7 @@ mod test {
         for &(r, c) in expected_fields {
             assert_eq!(
                 open_info.field_infos.get(&(r, c)).unwrap(),
-                &test_field_infos[r][c]
+                &test_field_infos[r as usize][c as usize]
             );
         }
     }
@@ -684,16 +727,16 @@ mod test {
     fn check_boomed_open_info(open_info: &OpenInfo, test_info: &TestInfo) {
         assert_eq!(open_info.result, OpenResult::Boom);
         assert_eq!(
-            open_info.field_infos.len(),
-            test_info.width * test_info.height
+            open_info.field_infos.len() as SizeType,
+            test_info.width.checked_mul(test_info.height).unwrap()
         );
         for ((r, c), field_type) in &open_info.field_infos {
-            assert_eq!(*field_type, test_info.fields[*r][*c]);
+            assert_eq!(*field_type, test_info.fields[*r as usize][*c as usize]);
         }
     }
 
-    fn check_height_and_width(expected_height: usize, expected_width: usize) {
-        const NUMBER_OF_MINES: usize = 1;
+    fn check_height_and_width(expected_height: SizeType, expected_width: SizeType) {
+        const NUMBER_OF_MINES: SizeType = 1;
         let table = BasicTable::new(expected_height, expected_width, NUMBER_OF_MINES).unwrap();
         assert_eq!(table.height(), expected_height);
         assert_eq!(table.width(), expected_width);
@@ -826,18 +869,18 @@ mod test {
 
     #[test]
     fn create_game_with_invalid_sizes() {
-        check_invalid_size_error(BasicTable::with_custom_mines(
-            usize::MAX,
-            usize::MAX,
+        check_too_much_fields_error(BasicTable::with_custom_mines(
+            SizeType::MAX,
+            SizeType::MAX,
             HashSet::new(),
         ));
-        check_invalid_size_error(BasicTable::with_custom_mines(
-            usize::MAX / 2 + 1,
+        check_too_much_fields_error(BasicTable::with_custom_mines(
+            SizeType::MAX / 2 + 1,
             2,
             HashSet::new(),
         ));
-        check_invalid_size_error(BasicTable::with_custom_mines(
-            usize::MAX / 5 + 4,
+        check_too_much_fields_error(BasicTable::with_custom_mines(
+            SizeType::MAX / 5 + 1,
             5,
             HashSet::new(),
         ));
@@ -964,7 +1007,7 @@ mod test {
                     continue;
                 }
                 assert_eq!(
-                    Some(&test_info.fields[row][col]),
+                    Some(&test_info.fields[row as usize][col as usize]),
                     open_result.field_infos.get(&(row, col))
                 );
             }
@@ -1008,7 +1051,7 @@ mod test {
         for row in 1..3 {
             for column in 0..2 {
                 assert_eq!(
-                    Some(&test_info.fields[row][column]),
+                    Some(&test_info.fields[row as usize][column as usize]),
                     field_infos.get(&(row, column))
                 );
             }
@@ -1035,7 +1078,10 @@ mod test {
         let mut table = test_info.table.borrow_mut();
         let row = 1;
         let col = 1;
-        assert_eq!(test_info.fields[row][col], FieldType::Numbered(1));
+        assert_eq!(
+            test_info.fields[row as usize][col as usize],
+            FieldType::Numbered(1)
+        );
         let open_info = table.open_neighbors(row, col).unwrap();
         assert_eq!(open_info.result, OpenResult::Ok);
         assert_eq!(open_info.field_infos.len(), 0);
@@ -1047,7 +1093,10 @@ mod test {
         let mut table = test_info.table.borrow_mut();
         let row = 0;
         let col = 0;
-        assert_eq!(test_info.fields[row][col], FieldType::Empty);
+        assert_eq!(
+            test_info.fields[row as usize][col as usize],
+            FieldType::Empty
+        );
         let open_info = table.open_neighbors(row, col).unwrap();
         assert_eq!(open_info.result, OpenResult::Ok);
         assert_eq!(open_info.field_infos.len(), 0);
@@ -1059,7 +1108,10 @@ mod test {
         let mut table = test_info.table.borrow_mut();
         let flag_row = 1;
         let flag_col = 3;
-        assert_ne!(test_info.fields[flag_row][flag_col], FieldType::Mine);
+        assert_ne!(
+            test_info.fields[flag_row as usize][flag_col as usize],
+            FieldType::Mine
+        );
         let flag_result = table.toggle_flag(flag_row, flag_col).unwrap();
         assert_eq!(flag_result, FlagResult::Flagged);
 
@@ -1083,7 +1135,10 @@ mod test {
         let mut table = test_info.table.borrow_mut();
         let flag_row = 0;
         let flag_col = 3;
-        assert_eq!(test_info.fields[flag_row][flag_col], FieldType::Mine);
+        assert_eq!(
+            test_info.fields[flag_row as usize][flag_col as usize],
+            FieldType::Mine
+        );
         let flag_result = table.toggle_flag(flag_row, flag_col).unwrap();
         assert_eq!(flag_result, FlagResult::Flagged);
 
@@ -1125,7 +1180,7 @@ mod test {
         let mut table = test_info.table.borrow_mut();
         let flag_coords = vec![(2, 2), (3, 0), (4, 1)];
         for (r, c) in flag_coords {
-            assert_eq!(test_info.fields[r][c], FieldType::Mine);
+            assert_eq!(test_info.fields[r as usize][c as usize], FieldType::Mine);
             let flag_result = table.toggle_flag(r, c).unwrap();
             assert_eq!(flag_result, FlagResult::Flagged);
         }
@@ -1157,7 +1212,7 @@ mod test {
         let mut table = test_info.table.borrow_mut();
         let flag_coords = vec![(2, 1), (3, 2), (4, 2)];
         for (r, c) in flag_coords {
-            assert_ne!(test_info.fields[r][c], FieldType::Mine);
+            assert_ne!(test_info.fields[r as usize][c as usize], FieldType::Mine);
             let flag_result = table.toggle_flag(r, c).unwrap();
             assert_eq!(flag_result, FlagResult::Flagged);
         }
@@ -1241,10 +1296,10 @@ mod test {
     }
 
     #[test]
-    fn with_custom_mines_invalid_size() {
-        const HEIGHT: usize = 4;
-        const WIDTH: usize = 6;
-        let expected_error: Result<BasicTable, &'static str> = Err(INVALID_SIZE_ERROR);
+    fn with_custom_mines_invalid_mine_locations() {
+        const HEIGHT: SizeType = 4;
+        const WIDTH: SizeType = 6;
+        let expected_error: Result<BasicTable, &'static str> = Err(INVALID_MINE_LOCATIONS);
         {
             let mut mine_locations = HashSet::new();
             mine_locations.insert((HEIGHT - 1, WIDTH - 1));
