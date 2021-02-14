@@ -17,6 +17,9 @@ pub enum CError {
     UnexpectedError,
 }
 
+type GameSizeType = minesweeper::SizeType;
+type ArraySizeType = u64;
+
 macro_rules! return_error {
     ($error_info_ptr:ident, $error_code:expr, $error_msg:expr) => {{
         let error_info = unsafe { &mut *$error_info_ptr };
@@ -37,7 +40,7 @@ macro_rules! return_error {
                 *error_info
                     .error_message
                     .offset(len_without_terminator as isize) = 0;
-                error_info.error_message_length = len_without_terminator as u64;
+                error_info.error_message_length = len_without_terminator as ArraySizeType;
             }
         }
         error_info.error_code = $error_code;
@@ -74,27 +77,26 @@ macro_rules! initialize_to_ok {
 }
 
 // Based on this https://s3.amazonaws.com/temp.michaelfbryan.com/objects/index.html
-
 #[repr(C)]
 pub struct CFieldInfo {
-    row: minesweeper::SizeType,
-    column: minesweeper::SizeType,
+    row: GameSizeType,
+    column: GameSizeType,
     field_type: FieldType,
 }
 
 #[repr(C)]
 pub struct COpenInfo {
     result: OpenResult,
-    field_infos_length: u64,
-    field_infos_max_length: u64,
+    field_infos_length: ArraySizeType,
+    field_infos_max_length: ArraySizeType,
     field_infos_ptr: *mut CFieldInfo,
 }
 
 #[repr(C)]
 pub struct CErrorInfo {
     error_code: CError,
-    error_message_length: u64,
-    error_message_max_length: u64,
+    error_message_length: ArraySizeType,
+    error_message_max_length: ArraySizeType,
     error_message: *mut c_char,
 }
 
@@ -119,8 +121,8 @@ pub extern "C" fn minesweeper_new_game(
 #[no_mangle]
 pub extern "C" fn minesweeper_game_open(
     game_ptr: *mut Game,
-    row: minesweeper::SizeType,
-    column: minesweeper::SizeType,
+    row: GameSizeType,
+    column: GameSizeType,
     c_open_info_ptr: *mut COpenInfo,
     c_ei_ptr: *mut CErrorInfo,
 ) {
@@ -143,7 +145,7 @@ pub extern "C" fn minesweeper_game_open(
     let game = unsafe { &mut *game_ptr };
     let open_info = return_or_assign!(game.open(row, column), c_ei_ptr);
 
-    if open_info.field_infos.len() as u64 > c_open_info.field_infos_max_length {
+    if open_info.field_infos.len() as ArraySizeType > c_open_info.field_infos_max_length {
         return;
     }
     c_open_info.result = open_info.result;
@@ -160,14 +162,14 @@ pub extern "C" fn minesweeper_game_open(
         c_field_infos[index].field_type = field_type.clone();
         index = index + 1;
     }
-    c_open_info.field_infos_length = index as u64;
+    c_open_info.field_infos_length = index as ArraySizeType;
 }
 
 #[no_mangle]
 pub extern "C" fn minesweeper_game_toggle_flag(
     game_ptr: *mut Game,
-    row: minesweeper::SizeType,
-    column: minesweeper::SizeType,
+    row: GameSizeType,
+    column: GameSizeType,
     field_flag_result_ptr: *mut FlagResult,
     c_ei_ptr: *mut CErrorInfo,
 ) {
@@ -202,7 +204,7 @@ pub extern "C" fn minesweeper_destroy_game(
 #[no_mangle]
 pub extern "C" fn minesweeper_game_get_width(
     game_ptr: *const Game,
-    width_ptr: *mut minesweeper::SizeType,
+    width_ptr: *mut GameSizeType,
     c_ei_ptr: *mut CErrorInfo,
 ) {
     initialize_to_ok!(c_ei_ptr);
@@ -217,7 +219,7 @@ pub extern "C" fn minesweeper_game_get_width(
 #[no_mangle]
 pub extern "C" fn minesweeper_game_get_height(
     game_ptr: *const Game,
-    height_ptr: *mut minesweeper::SizeType,
+    height_ptr: *mut GameSizeType,
     c_ei_ptr: *mut CErrorInfo,
 ) {
     initialize_to_ok!(c_ei_ptr);
@@ -280,7 +282,7 @@ mod test {
     fn create_open_info_with_size(size: usize) -> BufferedData<COpenInfo, CFieldInfo> {
         let mut buffer = Vec::with_capacity(size);
         let field_infos_ptr = buffer.as_mut_ptr();
-        let field_infos_max_length = u64::try_from(size).expect("Size conversion failed");
+        let field_infos_max_length = ArraySizeType::try_from(size).expect("Size conversion failed");
         let data = COpenInfo {
             result: OpenResult::Boom,
             field_infos_length: 0,
@@ -309,7 +311,7 @@ mod test {
         let mut data = CErrorInfo {
             error_code: CError::UnexpectedError,
             error_message_length: 0,
-            error_message_max_length: u64::try_from(max_error_length)
+            error_message_max_length: ArraySizeType::try_from(max_error_length)
                 .expect("Size conversion failed"),
             error_message,
         };
@@ -333,7 +335,7 @@ mod test {
         result
     }
 
-    fn get_width(game_ptr: *mut Game) -> minesweeper::SizeType {
+    fn get_width(game_ptr: *mut Game) -> GameSizeType {
         let mut error_info = create_empty_error_info();
         let mut width = 0;
 
@@ -344,7 +346,7 @@ mod test {
         width
     }
 
-    fn get_height(game_ptr: *mut Game) -> minesweeper::SizeType {
+    fn get_height(game_ptr: *mut Game) -> GameSizeType {
         let mut error_info = create_empty_error_info();
         let mut height = 0;
 
