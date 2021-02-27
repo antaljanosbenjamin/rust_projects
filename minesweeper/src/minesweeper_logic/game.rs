@@ -160,7 +160,14 @@ mod test {
         let absolute_tolerance = expected_value * tolerance;
         if expected_value >= 0.0 {
             assert!(expected_value - absolute_tolerance < value);
-            assert!(expected_value + absolute_tolerance > value);
+            assert!(
+                expected_value + absolute_tolerance > value,
+                "{:.1} + {:.1} == {:.1} > {:.1}",
+                expected_value / 1_000_000.0,
+                absolute_tolerance / 1_000_000.0,
+                (expected_value + absolute_tolerance) / 1_000_000.0,
+                value / 1_000_000.0
+            );
         } else {
             assert!(expected_value - absolute_tolerance > value);
             assert!(expected_value + absolute_tolerance < value);
@@ -290,17 +297,23 @@ mod test {
         assert_eq!(OpenResult::WINNER, open_info.result);
 
         let expected_first_checkpoint = Duration::from_millis(SLEEPING_MILLIS).as_nanos() as f64;
-        check_close_to(expected_first_checkpoint, elapsed_first_checkpoint, 0.1);
+        const HUGE_TOLERANCE_DUE_TO_TINY_SLEEP_TIME: f64 = 0.5;
+        check_close_to(
+            expected_first_checkpoint,
+            elapsed_first_checkpoint,
+            HUGE_TOLERANCE_DUE_TO_TINY_SLEEP_TIME,
+        );
 
         thread::sleep(Duration::from_millis(SLEEPING_MILLIS));
 
         let expected_game_time = end_time - start_time;
         let actual_game_time = game.get_elapsed();
 
+        const BIG_TOLERANCE_DUE_TO_TINY_SLEEP_TIME: f64 = 0.3;
         check_close_to(
             expected_game_time.as_nanos() as f64,
             actual_game_time.as_nanos() as f64,
-            0.1,
+            BIG_TOLERANCE_DUE_TO_TINY_SLEEP_TIME,
         );
 
         assert_eq!(actual_game_time, game.get_elapsed());
