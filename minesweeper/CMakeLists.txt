@@ -13,6 +13,8 @@ cargo_add_rust_library(
   MANIFEST_PATH
   Cargo.toml
   WITH_TESTS
+  TESTS_PREFIX
+  ${TESTS_PREFIX}
   FOLDER
   minesweeper
   ${MINESWEEPER_SOURCES}
@@ -25,6 +27,8 @@ cargo_add_executable(
   MANIFEST_PATH
   Cargo.toml
   WITH_TESTS
+  TESTS_PREFIX
+  ${TESTS_PREFIX}
   FOLDER
   minesweeper
   ${MINESWEEPER_DEMO_SOURCES}
@@ -39,6 +43,8 @@ cargo_add_library(
   MANIFEST_PATH
   ../cminesweeper/Cargo.toml
   WITH_TESTS
+  TESTS_PREFIX
+  ${TESTS_PREFIX}
   FOLDER
   minesweeper
   ${CMINESWEEPER_SOURCES}

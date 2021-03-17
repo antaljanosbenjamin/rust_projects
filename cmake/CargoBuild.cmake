@@ -26,22 +26,21 @@ function(
   CARGO_ARGS_OUT
   CARGO_RESULT_DIR_OUT
   WITH_TESTS_OUT
+  TESTS_PREFIX_OUT
   FOLDER_OUT
   TARGET_SOURCE_FILES_OUT
 )
   cmake_parse_arguments(
     PARSED_ARGS
     "WITH_TESTS"
-    "MANIFEST_PATH;FOLDER"
+    "MANIFEST_PATH;FOLDER;TESTS_PREFIX"
     ""
     ${ARGN}
   )
 
   foreach(TARGET_SOURCE_FILE ${PARSED_ARGS_UNPARSED_ARGUMENTS})
     if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_SOURCE_FILE})
-      message(FATAL_ERROR "Cannot find source file:
-  ${TARGET_SOURCE_FILE}"
-      )
+      message(FATAL_ERROR "Cannot find source file: ${TARGET_SOURCE_FILE}")
     endif()
   endforeach()
 
@@ -110,6 +109,18 @@ function(
       PARENT_SCOPE
   )
   set(${WITH_TESTS_OUT} ${PARSED_ARGS_WITH_TESTS} PARENT_SCOPE)
+
+  if(PARSED_ARGS_TESTS_PREFIX)
+    if(NOT ${PARSED_ARGS_WITH_TESTS})
+      message(FATAL_ERROR "TESTS_PREFIX was specified as ${PARSED_ARGS_TESTS_PREFIX},"
+                          " but WITH_TESTS option is not present!"
+      )
+    endif()
+    set(${TESTS_PREFIX_OUT} ${PARSED_ARGS_TESTS_PREFIX} PARENT_SCOPE)
+  else()
+    set(${TESTS_PREFIX_OUT} "" PARENT_SCOPE)
+  endif()
+
   if(PARSED_ARGS_FOLDER)
     set(${FOLDER_OUT} ${PARSED_ARGS_FOLDER} PARENT_SCOPE)
   endif()
@@ -124,6 +135,7 @@ function(cargo_add_library LIB_NAME)
     CARGO_ARGS
     CARGO_RESULT_DIR
     WITH_TESTS
+    TESTS_PREFIX
     FOLDER
     LIB_SOURCE_FILES
     ${ARGN}
@@ -205,7 +217,7 @@ function(cargo_add_library LIB_NAME)
 
   if(${WITH_TESTS} AND BUILD_TESTING)
     message(STATUS "Adding tests for ${LIB_NAME} library")
-    set(TESTS_TARGET_NAME ${LIB_NAME}_tests)
+    set(TESTS_TARGET_NAME ${TESTS_PREFIX}${LIB_NAME}_tests)
     add_test(NAME ${TESTS_TARGET_NAME} COMMAND cargo test ${CARGO_ARGS})
   endif()
 
@@ -231,6 +243,7 @@ function(
     CARGO_ARGS
     CARGO_RESULT_DIR
     WITH_TESTS
+    TESTS_PREFIX
     FOLDER
     TARGET_SOURCE_FILES
     ${ARGN}
@@ -261,7 +274,7 @@ function(
 
   if(${WITH_TESTS} AND BUILD_TESTING)
     message(STATUS "Adding tests for ${TARGET_NAME_AND_TYPE}")
-    add_test(NAME ${TARGET_NAME}_tests COMMAND cargo test ${CARGO_ARGS}
+    add_test(NAME ${TESTS_PREFIX}${TARGET_NAME}_tests COMMAND cargo test ${CARGO_ARGS}
              WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
   endif()
