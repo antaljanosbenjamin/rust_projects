@@ -1,0 +1,35 @@
+name: build
+on: [push]
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - name: "Windows"
+            os: windows-latest
+          - name: "Ubuntu"
+            os: ubuntu-latest
+          - name: "macOS"
+            os: macos-latest
+      fail-fast: false
+    steps:
+      - name: Build
+        run: cargo build
+        shell: bash
+      - name: Run tests
+        run: cargo test
+        shell: bash
+      - name: Build with CMake
+        run: |
+          mkdir cmake_build
+          cd cmake_build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake --build . --config Release --parallel
+        shell: bash
+      - name: Test with CMake
+        run: |
+          cd cmake_build
+          ctest . -C Release --jobs 6
+        shell: bash
