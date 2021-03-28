@@ -11,8 +11,6 @@ jobs:
             os: windows-latest
           - name: "Ubuntu"
             os: ubuntu-latest
-          - name: "macOS"
-            os: macos-latest
       fail-fast: false
     steps:
       - name: Checkout repository
