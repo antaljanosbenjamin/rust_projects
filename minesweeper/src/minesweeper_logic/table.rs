@@ -454,11 +454,11 @@ impl BasicTable {
     fn construct_boom_result(&self) -> OpenInfo {
         let mut boom_result = OpenInfo {
             result: OpenResult::Boom,
-            field_infos: HashMap::new(),
+            newly_opened_fields: HashMap::new(),
         };
         for row in 0..self.height {
             for column in 0..self.width {
-                boom_result.field_infos.insert(
+                boom_result.newly_opened_fields.insert(
                     (row, column),
                     self.fields[row as usize][column as usize].get_field_type(),
                 );
@@ -468,7 +468,7 @@ impl BasicTable {
     }
 
     fn execute_open(&mut self, visiter: &mut FieldVisiter) -> Result<OpenInfo, &'static str> {
-        let mut field_infos = HashMap::new();
+        let mut newly_opened_fields = HashMap::new();
         let mut has_boomed = false;
 
         while let Some((r, c)) = visiter.next() {
@@ -484,7 +484,8 @@ impl BasicTable {
                 _ => continue,
             };
 
-            field_infos.insert((r, c), self.fields[r as usize][c as usize].get_field_type());
+            newly_opened_fields
+                .insert((r, c), self.fields[r as usize][c as usize].get_field_type());
         }
 
         if has_boomed {
@@ -493,19 +494,19 @@ impl BasicTable {
 
         if self.all_fields_are_open() {
             for mine_coords in &self.mine_locations {
-                field_infos.insert(
+                newly_opened_fields.insert(
                     (mine_coords.0, mine_coords.1),
                     self.fields[mine_coords.0 as usize][mine_coords.1 as usize].get_field_type(),
                 );
             }
             Ok(OpenInfo {
                 result: OpenResult::WINNER,
-                field_infos,
+                newly_opened_fields,
             })
         } else {
             Ok(OpenInfo {
                 result: OpenResult::Ok,
-                field_infos,
+                newly_opened_fields,
             })
         }
     }
@@ -554,7 +555,7 @@ impl Table for BasicTable {
         {
             return Ok(OpenInfo {
                 result: OpenResult::IsFlagged,
-                field_infos: HashMap::new(),
+                newly_opened_fields: HashMap::new(),
             });
         }
 
@@ -573,7 +574,7 @@ impl Table for BasicTable {
 
         let empty_open_info = OpenInfo {
             result: OpenResult::Ok,
-            field_infos: HashMap::new(),
+            newly_opened_fields: HashMap::new(),
         };
 
         if !self.fields[row as usize][col as usize]
@@ -706,14 +707,14 @@ mod test {
         open_info: &OpenInfo,
         expected_result: &OpenResult,
         expected_fields: &Vec<(SizeType, SizeType)>,
-        test_field_infos: &Vec<Vec<FieldType>>,
+        test_fields: &Vec<Vec<FieldType>>,
     ) {
         assert_eq!(open_info.result, *expected_result);
-        assert_eq!(open_info.field_infos.len(), expected_fields.len());
+        assert_eq!(open_info.newly_opened_fields.len(), expected_fields.len());
         for &(r, c) in expected_fields {
             assert_eq!(
-                open_info.field_infos.get(&(r, c)).unwrap(),
-                &test_field_infos[r as usize][c as usize]
+                open_info.newly_opened_fields.get(&(r, c)).unwrap(),
+                &test_fields[r as usize][c as usize]
             );
         }
     }
@@ -721,10 +722,10 @@ mod test {
     fn check_boomed_open_info(open_info: &OpenInfo, test_info: &TestInfo) {
         assert_eq!(open_info.result, OpenResult::Boom);
         assert_eq!(
-            open_info.field_infos.len() as SizeType,
+            open_info.newly_opened_fields.len() as SizeType,
             test_info.width.checked_mul(test_info.height).unwrap()
         );
-        for ((r, c), field_type) in &open_info.field_infos {
+        for ((r, c), field_type) in &open_info.newly_opened_fields {
             assert_eq!(*field_type, test_info.fields[*r as usize][*c as usize]);
         }
     }
@@ -994,7 +995,7 @@ mod test {
         let mut table = test_info.table.borrow_mut();
         let open_result = table.open_field(1, 0).unwrap();
         assert_eq!(OpenResult::Ok, open_result.result);
-        assert_eq!(8, open_result.field_infos.len());
+        assert_eq!(8, open_result.newly_opened_fields.len());
         for row in 0..3 {
             for col in 0..3 {
                 if row == 2 && col == 2 {
@@ -1002,7 +1003,7 @@ mod test {
                 }
                 assert_eq!(
                     Some(&test_info.fields[row as usize][col as usize]),
-                    open_result.field_infos.get(&(row, col))
+                    open_result.newly_opened_fields.get(&(row, col))
                 );
             }
         }
@@ -1026,7 +1027,7 @@ mod test {
         assert_eq!(FlagResult::Flagged, toggle_result);
         let open_result = table.open_field(1, 1).unwrap();
         assert_eq!(OpenResult::IsFlagged, open_result.result);
-        assert_eq!(0, open_result.field_infos.len());
+        assert_eq!(0, open_result.newly_opened_fields.len());
     }
 
     #[test]
@@ -1037,16 +1038,16 @@ mod test {
         assert_eq!(FlagResult::Flagged, toggle_result);
         let open_result = table.open_field(1, 0).unwrap();
         assert_eq!(OpenResult::Ok, open_result.result);
-        let field_infos = &open_result.field_infos;
-        assert_eq!(5, field_infos.len());
+        let fields = &open_result.newly_opened_fields;
+        assert_eq!(5, fields.len());
 
-        assert_eq!(Some(&FieldType::Empty), field_infos.get(&(0, 0)));
+        assert_eq!(Some(&FieldType::Empty), fields.get(&(0, 0)));
 
         for row in 1..3 {
             for column in 0..2 {
                 assert_eq!(
                     Some(&test_info.fields[row as usize][column as usize]),
-                    field_infos.get(&(row, column))
+                    fields.get(&(row, column))
                 );
             }
         }
@@ -1061,8 +1062,8 @@ mod test {
                 BasicTable::with_custom_mines(height, width, MINE_LOCATIONS_5X6.clone()).unwrap();
             let open_info = table.open_field(row, col).unwrap();
             assert_eq!(open_info.result, OpenResult::Ok);
-            const MIN_FIELD_INFOS: usize = 1;
-            assert!(open_info.field_infos.len() >= MIN_FIELD_INFOS);
+            const MIN_fields: usize = 1;
+            assert!(open_info.newly_opened_fields.len() >= MIN_fields);
         }
     }
 
@@ -1078,7 +1079,7 @@ mod test {
         );
         let open_info = table.open_neighbors(row, col).unwrap();
         assert_eq!(open_info.result, OpenResult::Ok);
-        assert_eq!(open_info.field_infos.len(), 0);
+        assert_eq!(open_info.newly_opened_fields.len(), 0);
     }
 
     #[test]
@@ -1093,7 +1094,7 @@ mod test {
         );
         let open_info = table.open_neighbors(row, col).unwrap();
         assert_eq!(open_info.result, OpenResult::Ok);
-        assert_eq!(open_info.field_infos.len(), 0);
+        assert_eq!(open_info.newly_opened_fields.len(), 0);
     }
 
     #[test]
@@ -1114,9 +1115,11 @@ mod test {
 
         let simple_open_info = table.open_field(open_row, open_col).unwrap();
         assert_eq!(simple_open_info.result, OpenResult::Ok);
-        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(simple_open_info.newly_opened_fields.len(), 1);
         assert_eq!(
-            simple_open_info.field_infos.get(&(open_row, open_col)),
+            simple_open_info
+                .newly_opened_fields
+                .get(&(open_row, open_col)),
             Some(&FieldType::Numbered(1))
         );
         let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
@@ -1141,9 +1144,11 @@ mod test {
 
         let simple_open_info = table.open_field(open_row, open_col).unwrap();
         assert_eq!(simple_open_info.result, OpenResult::Ok);
-        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(simple_open_info.newly_opened_fields.len(), 1);
         assert_eq!(
-            simple_open_info.field_infos.get(&(open_row, open_col)),
+            simple_open_info
+                .newly_opened_fields
+                .get(&(open_row, open_col)),
             Some(&FieldType::Numbered(1))
         );
         let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
@@ -1184,9 +1189,11 @@ mod test {
 
         let simple_open_info = table.open_field(open_row, open_col).unwrap();
         assert_eq!(simple_open_info.result, OpenResult::Ok);
-        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(simple_open_info.newly_opened_fields.len(), 1);
         assert_eq!(
-            simple_open_info.field_infos.get(&(open_row, open_col)),
+            simple_open_info
+                .newly_opened_fields
+                .get(&(open_row, open_col)),
             Some(&FieldType::Numbered(3))
         );
         let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
@@ -1216,9 +1223,11 @@ mod test {
 
         let simple_open_info = table.open_field(open_row, open_col).unwrap();
         assert_eq!(simple_open_info.result, OpenResult::Ok);
-        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(simple_open_info.newly_opened_fields.len(), 1);
         assert_eq!(
-            simple_open_info.field_infos.get(&(open_row, open_col)),
+            simple_open_info
+                .newly_opened_fields
+                .get(&(open_row, open_col)),
             Some(&FieldType::Numbered(3))
         );
         let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
@@ -1240,9 +1249,11 @@ mod test {
 
         let simple_open_info = table.open_field(open_row, open_col).unwrap();
         assert_eq!(simple_open_info.result, OpenResult::Ok);
-        assert_eq!(simple_open_info.field_infos.len(), 1);
+        assert_eq!(simple_open_info.newly_opened_fields.len(), 1);
         assert_eq!(
-            simple_open_info.field_infos.get(&(open_row, open_col)),
+            simple_open_info
+                .newly_opened_fields
+                .get(&(open_row, open_col)),
             Some(&FieldType::Numbered(3))
         );
         let neighbor_open_info = table.open_neighbors(open_row, open_col).unwrap();
@@ -1262,7 +1273,7 @@ mod test {
         let mut table = test_info.table.borrow_mut();
         let first_open_result = table.open_field(0, 0).unwrap();
         assert_eq!(OpenResult::Ok, first_open_result.result);
-        assert_eq!(8, first_open_result.field_infos.len());
+        assert_eq!(8, first_open_result.newly_opened_fields.len());
         let mine_location = test_info.mine_locations.iter().next().unwrap();
         check_boomed_open_info(
             &table.open_field(mine_location.0, mine_location.1).unwrap(),

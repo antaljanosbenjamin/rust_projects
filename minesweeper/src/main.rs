@@ -93,7 +93,7 @@ fn main() {
         match read_result {
             Ok((Action::Open, r, c)) => {
                 let open_result = g.open(r, c).expect("Unable to open field");
-                for (coords, field_type) in &open_result.field_infos {
+                for (coords, field_type) in &open_result.newly_opened_fields {
                     fields[coords.0 as usize][coords.1 as usize] = field_type.get_char_repr();
                 }
                 last_result = open_result.result;

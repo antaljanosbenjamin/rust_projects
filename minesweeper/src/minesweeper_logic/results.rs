@@ -23,5 +23,5 @@ pub enum OpenResult {
 #[derive(Eq, PartialEq, Debug)]
 pub struct OpenInfo {
     pub result: OpenResult,
-    pub field_infos: HashMap<(SizeType, SizeType), FieldType>,
+    pub newly_opened_fields: HashMap<(SizeType, SizeType), FieldType>,
 }

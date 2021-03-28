@@ -78,7 +78,7 @@ macro_rules! initialize_to_ok {
 
 // Based on this https://s3.amazonaws.com/temp.michaelfbryan.com/objects/index.html
 #[repr(C)]
-pub struct CFieldInfo {
+pub struct COpenedField {
     row: GameSizeType,
     column: GameSizeType,
     field_type: FieldType,
@@ -87,9 +87,9 @@ pub struct CFieldInfo {
 #[repr(C)]
 pub struct COpenInfo {
     result: OpenResult,
-    field_infos_length: ArraySizeType,
-    field_infos_max_length: ArraySizeType,
-    field_infos_ptr: *mut CFieldInfo,
+    newly_opened_fields_length: ArraySizeType,
+    newly_opened_fields_max_length: ArraySizeType,
+    newly_opened_fields_ptr: *mut COpenedField,
 }
 
 #[repr(C)]
@@ -132,37 +132,39 @@ pub extern "C" fn minesweeper_game_open(
     }
 
     let mut c_open_info = unsafe { &mut *c_open_info_ptr };
-    if c_open_info.field_infos_length != 0 {
+    if c_open_info.newly_opened_fields_length != 0 {
         return_error!(c_ei_ptr, CError::InvalidInput);
     }
-    if c_open_info.field_infos_max_length == 0 {
+    if c_open_info.newly_opened_fields_max_length == 0 {
         return_error!(c_ei_ptr, CError::InsufficientBuffer);
     }
-    if c_open_info.field_infos_ptr.is_null() {
+    if c_open_info.newly_opened_fields_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
 
     let game = unsafe { &mut *game_ptr };
     let open_info = return_or_assign!(game.open(row, column), c_ei_ptr);
 
-    if open_info.field_infos.len() as ArraySizeType > c_open_info.field_infos_max_length {
+    if open_info.newly_opened_fields.len() as ArraySizeType
+        > c_open_info.newly_opened_fields_max_length
+    {
         return;
     }
     c_open_info.result = open_info.result;
-    let c_field_infos: &mut [CFieldInfo] = unsafe {
+    let c_newly_opened_fields: &mut [COpenedField] = unsafe {
         slice::from_raw_parts_mut(
-            c_open_info.field_infos_ptr,
-            c_open_info.field_infos_max_length as usize,
+            c_open_info.newly_opened_fields_ptr,
+            c_open_info.newly_opened_fields_max_length as usize,
         )
     };
     let mut index: usize = 0;
-    for (coords, field_type) in open_info.field_infos {
-        c_field_infos[index].row = coords.0;
-        c_field_infos[index].column = coords.1;
-        c_field_infos[index].field_type = field_type.clone();
+    for (coords, field_type) in open_info.newly_opened_fields {
+        c_newly_opened_fields[index].row = coords.0;
+        c_newly_opened_fields[index].column = coords.1;
+        c_newly_opened_fields[index].field_type = field_type.clone();
         index = index + 1;
     }
-    c_open_info.field_infos_length = index as ArraySizeType;
+    c_open_info.newly_opened_fields_length = index as ArraySizeType;
 }
 
 #[no_mangle]
@@ -279,21 +281,22 @@ mod test {
         data: S,
     }
 
-    fn create_open_info_with_size(size: usize) -> BufferedData<COpenInfo, CFieldInfo> {
+    fn create_open_info_with_size(size: usize) -> BufferedData<COpenInfo, COpenedField> {
         let mut buffer = Vec::with_capacity(size);
-        let field_infos_ptr = buffer.as_mut_ptr();
-        let field_infos_max_length = ArraySizeType::try_from(size).expect("Size conversion failed");
+        let newly_opened_fields_ptr = buffer.as_mut_ptr();
+        let newly_opened_fields_max_length =
+            ArraySizeType::try_from(size).expect("Size conversion failed");
         let data = COpenInfo {
             result: OpenResult::Boom,
-            field_infos_length: 0,
-            field_infos_max_length,
-            field_infos_ptr,
+            newly_opened_fields_length: 0,
+            newly_opened_fields_max_length,
+            newly_opened_fields_ptr,
         };
 
         BufferedData { buffer, data }
     }
 
-    fn create_open_info_for(game_ptr: *mut Game) -> BufferedData<COpenInfo, CFieldInfo> {
+    fn create_open_info_for(game_ptr: *mut Game) -> BufferedData<COpenInfo, COpenedField> {
         let width = get_width(game_ptr);
         let height = get_height(game_ptr);
         create_open_info_with_size(usize::try_from(width * height).unwrap())
@@ -454,17 +457,21 @@ mod test {
             &mut buffered_error_info.data,
         );
         assert_ok!(buffered_error_info.data);
-        assert!(buffered_open_info.data.field_infos_length > 0);
+        assert!(buffered_open_info.data.newly_opened_fields_length > 0);
         assert_eq!(CError::Ok, buffered_error_info.data.error_code);
 
-        let field_infos_size = usize::try_from(buffered_open_info.data.field_infos_length).unwrap();
+        let newly_opened_fields_size =
+            usize::try_from(buffered_open_info.data.newly_opened_fields_length).unwrap();
         let slice = unsafe {
-            std::slice::from_raw_parts(buffered_open_info.data.field_infos_ptr, field_infos_size)
+            std::slice::from_raw_parts(
+                buffered_open_info.data.newly_opened_fields_ptr,
+                newly_opened_fields_size,
+            )
         };
-        for field_info in slice.iter() {
-            assert_ne!(FieldType::Mine, field_info.field_type);
-            assert!(height >= field_info.row);
-            assert!(width >= field_info.column);
+        for newly_opened_field in slice.iter() {
+            assert_ne!(FieldType::Mine, newly_opened_field.field_type);
+            assert!(height >= newly_opened_field.row);
+            assert!(width >= newly_opened_field.column);
         }
         destroy_game(&mut game_ptr);
     }
@@ -493,10 +500,10 @@ mod test {
     }
 
     #[test]
-    fn open_with_not_empty_field_infos() {
+    fn open_with_not_empty_newly_opened_fields() {
         let mut game_ptr = create_game(GameLevel::Beginner);
         let mut buffered_open_info = create_open_info_with_size(5);
-        buffered_open_info.data.field_infos_length = 1;
+        buffered_open_info.data.newly_opened_fields_length = 1;
         let mut error_info = create_empty_error_info();
         minesweeper_game_open(
             game_ptr,
@@ -510,10 +517,10 @@ mod test {
     }
 
     #[test]
-    fn open_with_nullptr_as_field_infos() {
+    fn open_with_nullptr_as_newly_opened_fields() {
         let mut game_ptr = create_game(GameLevel::Beginner);
         let mut buffered_open_info = create_open_info_with_size(5);
-        buffered_open_info.data.field_infos_ptr = std::ptr::null_mut();
+        buffered_open_info.data.newly_opened_fields_ptr = std::ptr::null_mut();
         let mut error_info = create_empty_error_info();
         minesweeper_game_open(
             game_ptr,
@@ -530,7 +537,7 @@ mod test {
     fn open_with_insufficient_buffer() {
         let mut game_ptr = create_game(GameLevel::Beginner);
         let mut buffered_open_info = create_open_info_with_size(5);
-        buffered_open_info.data.field_infos_max_length = 0;
+        buffered_open_info.data.newly_opened_fields_max_length = 0;
         let mut error_info = create_empty_error_info();
         minesweeper_game_open(
             game_ptr,

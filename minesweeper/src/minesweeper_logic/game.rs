@@ -175,11 +175,11 @@ mod test {
     }
 
     fn create_default_open_result(row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str> {
-        let mut field_infos = HashMap::new();
-        field_infos.insert((row, col), crate::FieldType::Numbered(1));
+        let mut newly_opened_fields = HashMap::new();
+        newly_opened_fields.insert((row, col), crate::FieldType::Numbered(1));
         Ok(OpenInfo {
             result: OpenResult::Ok,
-            field_infos,
+            newly_opened_fields,
         })
     }
 
