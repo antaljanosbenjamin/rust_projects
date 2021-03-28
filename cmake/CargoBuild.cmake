@@ -92,8 +92,6 @@ function(
     else()
       message(FATAL_ERROR "Unsupported android platform!")
     endif()
-  elseif(APPLE)
-    set(CARGO_TARGET_TRIPLE "x86_64-apple-darwin")
   elseif(UNIX AND NOT WIN32) # UNIX AND WIN32 => Cygwin
     if(${IS_64})
       set(CARGO_TARGET_TRIPLE "x86_64-unknown-linux-gnu")
