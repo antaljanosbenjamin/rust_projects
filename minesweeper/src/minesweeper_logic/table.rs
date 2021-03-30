@@ -18,12 +18,14 @@ static OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR: &'static str = "An opened field ca
 trait Field {
     fn get_field_state(&self) -> FieldState;
     fn get_field_type(&self) -> FieldType;
+    fn get_public_field_info(&self) -> FieldInfo;
 }
 
 #[automock]
 pub trait Table {
     fn width(&self) -> SizeType;
     fn height(&self) -> SizeType;
+    fn get_field_info(&self, row: SizeType, col: SizeType) -> Result<FieldInfo, &'static str>;
     fn open_field(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str>;
     fn open_neighbors(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str>;
     fn toggle_flag(&mut self, row: SizeType, col: SizeType) -> Result<FlagResult, &'static str>;
@@ -143,6 +145,16 @@ impl Field for FieldInner {
 
     fn get_field_type(&self) -> FieldType {
         self.field_info.field_type.clone()
+    }
+
+    fn get_public_field_info(&self) -> FieldInfo {
+        match self.field_info.state {
+            FieldState::Opened => self.field_info.clone(),
+            state => FieldInfo {
+                state,
+                field_type: FieldType::Empty,
+            },
+        }
     }
 }
 
@@ -379,28 +391,34 @@ impl BasicTable {
             == (self.mine_locations.len() as SizeType).checked_add(self.number_of_opened_fields)
     }
 
+    fn get_field_unchecked(&self, row: SizeType, col: SizeType) -> &FieldInner {
+        &self.fields[row as usize][col as usize]
+    }
+
+    fn get_field_unchecked_mut(&mut self, row: SizeType, col: SizeType) -> &mut FieldInner {
+        &mut self.fields[row as usize][col as usize]
+    }
+
     fn move_mine(&mut self, row: SizeType, col: SizeType) -> Result<(), &'static str> {
-        if self.fields[row as usize][col as usize]
+        if self
+            .get_field_unchecked(row, col)
             .get_field_type()
             .is_mine()
         {
             let mut new_place = (0, 0);
             let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
             while let Some((r, c)) = visiter.next() {
-                if !self.fields[r as usize][c as usize]
-                    .get_field_type()
-                    .is_mine()
-                {
+                if !self.get_field_unchecked(r, c).get_field_type().is_mine() {
                     new_place = (r, c);
                     break;
                 }
                 visiter.extend_with_unvisited_neighbors(r, c);
             }
 
-            self.fields[new_place.0 as usize][new_place.1 as usize]
+            self.get_field_unchecked_mut(new_place.0, new_place.1)
                 .update_type_to_mine()
                 .unwrap();
-            self.fields[row as usize][col as usize]
+            self.get_field_unchecked_mut(row, col)
                 .update_type_to_empty()
                 .unwrap();
             self.mine_locations.remove(&(row, col));
@@ -413,16 +431,15 @@ impl BasicTable {
             );
             fields_to_recalculate.insert((row, col));
             for (r, c) in fields_to_recalculate {
-                if !self.fields[r as usize][c as usize]
-                    .get_field_type()
-                    .is_mine()
-                {
+                if !self.get_field_unchecked(r, c).get_field_type().is_mine() {
                     let field_value = self.get_field_value(r, c).unwrap();
                     match field_value {
-                        0 => self.fields[r as usize][c as usize]
+                        0 => self
+                            .get_field_unchecked_mut(r, c)
                             .update_type_to_empty()
                             .unwrap(),
-                        _ => self.fields[r as usize][c as usize]
+                        _ => self
+                            .get_field_unchecked_mut(r, c)
                             .update_type_with_value(field_value)
                             .unwrap(),
                     };
@@ -442,7 +459,7 @@ impl BasicTable {
             for column in 0..self.width {
                 boom_result.newly_opened_fields.insert(
                     (row, column),
-                    self.fields[row as usize][column as usize].get_field_type(),
+                    self.get_field_unchecked(row, column).get_field_type(),
                 );
             }
         }
@@ -454,7 +471,7 @@ impl BasicTable {
         let mut has_boomed = false;
 
         while let Some((r, c)) = visiter.next() {
-            match self.fields[r as usize][c as usize].open() {
+            match self.get_field_unchecked_mut(r, c).open() {
                 FieldOpenResult::MultiOpen => {
                     self.number_of_opened_fields = self.number_of_opened_fields + 1;
                     visiter.extend_with_unvisited_neighbors(r, c);
@@ -466,8 +483,7 @@ impl BasicTable {
                 _ => continue,
             };
 
-            newly_opened_fields
-                .insert((r, c), self.fields[r as usize][c as usize].get_field_type());
+            newly_opened_fields.insert((r, c), self.get_field_unchecked(r, c).get_field_type());
         }
 
         if has_boomed {
@@ -476,10 +492,7 @@ impl BasicTable {
 
         if self.all_fields_are_open() {
             for mine_coords in &self.mine_locations {
-                newly_opened_fields.insert(
-                    (mine_coords.0, mine_coords.1),
-                    self.fields[mine_coords.0 as usize][mine_coords.1 as usize].get_field_type(),
-                );
+                newly_opened_fields.insert((mine_coords.0, mine_coords.1), FieldType::Mine);
             }
             Ok(OpenInfo {
                 result: OpenResult::WINNER,
@@ -503,7 +516,7 @@ impl BasicTable {
             if row == r && col == c {
                 continue;
             }
-            if self.fields[r as usize][c as usize].get_field_state() == FieldState::Flagged {
+            if self.get_field_unchecked(r, c).get_field_state() == FieldState::Flagged {
                 number_of_flagged_neighbors += 1;
             }
         }
@@ -528,10 +541,16 @@ impl Table for BasicTable {
         self.height
     }
 
+    fn get_field_info(&self, row: SizeType, col: SizeType) -> Result<FieldInfo, &'static str> {
+        self.validate_indices(row, col)?;
+        Ok(self.get_field_unchecked(row, col).get_public_field_info())
+    }
+
     fn open_field(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str> {
         self.validate_indices(row, col)?;
 
-        if self.fields[row as usize][col as usize]
+        if self
+            .get_field_unchecked(row, col)
             .get_field_state()
             .is_flagged()
         {
@@ -542,7 +561,8 @@ impl Table for BasicTable {
         }
 
         if self.number_of_opened_fields == 0
-            && self.fields[row as usize][col as usize]
+            && self
+                .get_field_unchecked(row, col)
                 .get_field_type()
                 .is_mine()
         {
@@ -561,14 +581,15 @@ impl Table for BasicTable {
             newly_opened_fields: HashMap::new(),
         };
 
-        if !self.fields[row as usize][col as usize]
+        if !self
+            .get_field_unchecked(row, col)
             .get_field_state()
             .is_opened()
         {
             return Ok(empty_open_info);
         }
 
-        match self.fields[row as usize][col as usize].get_field_type() {
+        match self.get_field_unchecked(row, col).get_field_type() {
             FieldType::Numbered(x) if x == self.count_flagged_neighbors(row, col)? => {
                 let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
                 visiter.extend_with_unvisited_neighbors(row, col);
@@ -581,7 +602,7 @@ impl Table for BasicTable {
     fn toggle_flag(&mut self, row: SizeType, col: SizeType) -> Result<FlagResult, &'static str> {
         self.validate_indices(row, col)?;
 
-        Ok(self.fields[row as usize][col as usize].toggle_flag())
+        Ok(self.get_field_unchecked_mut(row, col).toggle_flag())
     }
 }
 
@@ -610,12 +631,13 @@ mod test {
         mine_locations: HashSet<(SizeType, SizeType)>,
         fields: Vec<Vec<FieldType>>,
     }
-
-    // O O 1 M 1 0
-    // O 1 2 2 1 0
-    // 1 2 M 2 1 0
-    // M 3 3 M 1 0
-    // 2 M 2 1 1 0
+    //     0 1 2 3 4 5
+    //     - - - - - -
+    // 0 | O O 1 M 1 0
+    // 1 | O 1 2 2 1 0
+    // 2 | 1 2 M 2 1 0
+    // 3 | M 3 3 M 1 0
+    // 4 | 2 M 2 1 1 0
     fn create_test_info_5x6() -> TestInfo {
         let fields = vec![
             vec![
@@ -791,12 +813,14 @@ mod test {
     }
 
     #[test]
-    // 1 2 3 2 3 M
-    // 2 M M M 5 M
-    // 3 M 8 M 6 M
-    // 2 M M M 5 M
-    // 1 2 3 2 4 M
-    // 0 0 0 0 2 M
+    //     0 1 2 3 4 5
+    //     - - - - - -
+    // 0 | 1 2 3 2 3 M
+    // 1 | 2 M M M 5 M
+    // 2 | 3 M 8 M 6 M
+    // 3 | 2 M M M 5 M
+    // 4 | 1 2 3 2 4 M
+    // 5 | 0 0 0 0 2 M
     fn get_value_general_test() {
         let width = 6;
         let height = 6;
@@ -1353,6 +1377,100 @@ mod test {
         check_indices(-1, GOOD_INDEX, "Negative height");
         check_indices(GOOD_INDEX, -1, "Negative width");
         check_indices(-1, -1, "Negative both");
+    }
+
+    #[test]
+    fn get_field_info_closed() {
+        let test_info = create_test_info_5x6();
+        let table = test_info.table.borrow_mut();
+        let expected_field_info = FieldInfo {
+            state: FieldState::Closed,
+            field_type: FieldType::Empty,
+        };
+        for row in 0..test_info.height {
+            for col in 0..test_info.width {
+                let field_info = table.get_field_info(row, col).unwrap();
+                assert_eq!(expected_field_info, field_info);
+            }
+        }
+    }
+
+    #[test]
+    fn get_field_info_flagged() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        let expected_field_info = FieldInfo {
+            state: FieldState::Flagged,
+            field_type: FieldType::Empty,
+        };
+        for row in 0..test_info.height {
+            for col in 0..test_info.width {
+                table.toggle_flag(row, col).unwrap();
+                let field_info = table.get_field_info(row, col).unwrap();
+                assert_eq!(expected_field_info, field_info);
+            }
+        }
+    }
+
+    #[test]
+    fn get_field_info_opened() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        for row in 0..test_info.height {
+            for col in 0..test_info.width {
+                table.open_field(row, col).unwrap();
+                let field_info = table.get_field_info(row, col).unwrap();
+                let expected_field_info = FieldInfo {
+                    state: FieldState::Opened,
+                    field_type: test_info.fields[row as usize][col as usize].clone(),
+                };
+                assert_eq!(expected_field_info, field_info);
+            }
+        }
+    }
+
+    #[test]
+    fn get_field_info_mixed() {
+        let test_info = create_test_info_5x6();
+        let mut table = test_info.table.borrow_mut();
+        table.open_field(0, 0).unwrap();
+        let closed_field_info = FieldInfo {
+            state: FieldState::Closed,
+            field_type: FieldType::Empty,
+        };
+
+        for row in 0..test_info.height {
+            for col in 0..test_info.width {
+                let field_info = table.get_field_info(row, col).unwrap();
+                if row + col <= 3 && row < 3 && col < 3 {
+                    let expected_field_info = FieldInfo {
+                        state: FieldState::Opened,
+                        field_type: test_info.fields[row as usize][col as usize].clone(),
+                    };
+                    assert_eq!(expected_field_info, field_info);
+                } else {
+                    assert_eq!(closed_field_info, field_info);
+                }
+            }
+        }
+
+        table.open_field(3, 0).unwrap();
+        table.open_field(0, 3).unwrap();
+
+        for row in 0..test_info.height {
+            for col in 0..test_info.width {
+                let field_info = table.get_field_info(row, col).unwrap();
+                if row + col <= 3 {
+                    let expected_field_info = FieldInfo {
+                        state: FieldState::Opened,
+                        field_type: test_info.fields[row as usize][col as usize].clone(),
+                    };
+                    assert_eq!(expected_field_info, field_info);
+                } else {
+                    assert_eq!(closed_field_info, field_info);
+                }
+            }
+        }
     }
 
     // TODO Write test to full game
