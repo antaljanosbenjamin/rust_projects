@@ -1062,8 +1062,8 @@ mod test {
                 BasicTable::with_custom_mines(height, width, MINE_LOCATIONS_5X6.clone()).unwrap();
             let open_info = table.open_field(row, col).unwrap();
             assert_eq!(open_info.result, OpenResult::Ok);
-            const MIN_fields: usize = 1;
-            assert!(open_info.newly_opened_fields.len() >= MIN_fields);
+            const MIN_NEWLY_OPENED_FIELDS: usize = 1;
+            assert!(open_info.newly_opened_fields.len() >= MIN_NEWLY_OPENED_FIELDS);
         }
     }
 
