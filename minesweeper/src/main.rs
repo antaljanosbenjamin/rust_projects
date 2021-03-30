@@ -1,4 +1,4 @@
-use minesweeper::{FlagResult, Game, GameLevel, OpenResult, SizeType};
+use minesweeper::{FieldType, FlagResult, Game, GameLevel, OpenResult, SizeType};
 
 use std::io;
 use std::vec::Vec;
@@ -40,6 +40,14 @@ fn print_fields(fields: &Vec<Vec<char>>) {
         println!("");
     }
     print_horizontal_line();
+}
+
+fn get_char_repr(field_type: &FieldType) -> char {
+    match field_type {
+        FieldType::Empty => ' ',
+        FieldType::Numbered(x) => std::char::from_digit(*x as u32, 10).unwrap(),
+        FieldType::Mine => 'X',
+    }
 }
 
 #[derive(Debug)]
@@ -94,7 +102,7 @@ fn main() {
             Ok((Action::Open, r, c)) => {
                 let open_result = g.open(r, c).expect("Unable to open field");
                 for (coords, field_type) in &open_result.newly_opened_fields {
-                    fields[coords.0 as usize][coords.1 as usize] = field_type.get_char_repr();
+                    fields[coords.0 as usize][coords.1 as usize] = get_char_repr(field_type);
                 }
                 last_result = open_result.result;
             }

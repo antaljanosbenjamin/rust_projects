@@ -1,5 +1,5 @@
 use super::basic_types::SizeType;
-use super::field_type::FieldType;
+use super::field_info::{FieldInfo, FieldState, FieldType};
 use super::results::{FlagResult, OpenInfo, OpenResult};
 use indexmap::IndexSet;
 use mockall::automock;
@@ -15,27 +15,9 @@ static TOO_FEW_MINES_ERROR: &'static str = "Too few mines!";
 static MINE_DOES_NOT_HAVE_VALUE_ERROR: &'static str = "Mine does not have value!";
 static OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR: &'static str = "An opened field can not be updated!";
 
-#[derive(Eq, PartialEq, Display, Debug, Clone, Copy)]
-enum FieldState {
-    Closed,
-    Opened,
-    Flagged,
-}
-
-impl FieldState {
-    fn is_opened(&self) -> bool {
-        self == &FieldState::Opened
-    }
-
-    fn is_flagged(&self) -> bool {
-        self == &FieldState::Flagged
-    }
-}
-
 trait Field {
     fn get_field_state(&self) -> FieldState;
     fn get_field_type(&self) -> FieldType;
-    fn get_char_repr(&self) -> char;
 }
 
 #[automock]
@@ -58,8 +40,7 @@ enum FieldOpenResult {
 
 #[derive(Debug, Eq, PartialEq)]
 struct FieldInner {
-    field_type: FieldType,
-    state: FieldState,
+    field_info: FieldInfo,
 }
 
 impl FieldInner {
@@ -69,8 +50,10 @@ impl FieldInner {
 
     fn new_with_field_type(field_type: FieldType) -> FieldInner {
         FieldInner {
-            field_type,
-            state: FieldState::Closed,
+            field_info: FieldInfo {
+                state: FieldState::Closed,
+                field_type,
+            },
         }
     }
 
@@ -91,36 +74,36 @@ impl FieldInner {
     }
 
     fn update_type_to_mine(&mut self) -> Result<(), &'static str> {
-        if self.state == FieldState::Opened {
+        if self.field_info.state == FieldState::Opened {
             Err(OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR)
         } else {
-            self.field_type = FieldType::Mine;
+            self.field_info.field_type = FieldType::Mine;
             Ok(())
         }
     }
 
     fn update_type_to_empty(&mut self) -> Result<(), &'static str> {
-        if self.state == FieldState::Opened {
+        if self.field_info.state == FieldState::Opened {
             Err(OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR)
         } else {
-            self.field_type = FieldType::Empty;
+            self.field_info.field_type = FieldType::Empty;
             Ok(())
         }
     }
 
     fn update_type_with_value(&mut self, value: u8) -> Result<(), &'static str> {
-        if self.state == FieldState::Opened {
+        if self.field_info.state == FieldState::Opened {
             Err(OPENED_FIELD_CAN_NOT_BE_UPDATED_ERROR)
         } else if !FieldInner::is_valid_value(value) {
             Err(INVALID_VALUE_ERROR)
         } else {
-            self.field_type = FieldType::Numbered(value);
+            self.field_info.field_type = FieldType::Numbered(value);
             Ok(())
         }
     }
 
     fn get_open_result_inner(&self) -> FieldOpenResult {
-        match self.field_type {
+        match self.field_info.field_type {
             FieldType::Empty => FieldOpenResult::MultiOpen,
             FieldType::Numbered(_) => FieldOpenResult::SimpleOpen,
             FieldType::Mine => FieldOpenResult::Boom,
@@ -128,23 +111,23 @@ impl FieldInner {
     }
 
     fn open(&mut self) -> FieldOpenResult {
-        if self.get_field_state().is_flagged() {
+        if self.field_info.state.is_flagged() {
             FieldOpenResult::IsFlagged
-        } else if self.get_field_state().is_opened() {
+        } else if self.field_info.state.is_opened() {
             FieldOpenResult::AlreadyOpened
         } else {
-            self.state = FieldState::Opened;
+            self.field_info.state = FieldState::Opened;
             self.get_open_result_inner()
         }
     }
 
     fn toggle_flag(&mut self) -> FlagResult {
-        if self.state.is_flagged() {
-            self.state = FieldState::Closed;
+        if self.field_info.state.is_flagged() {
+            self.field_info.state = FieldState::Closed;
             FlagResult::FlagRemoved
         } else {
-            if !self.get_field_state().is_opened() {
-                self.state = FieldState::Flagged;
+            if !self.field_info.state.is_opened() {
+                self.field_info.state = FieldState::Flagged;
                 FlagResult::Flagged
             } else {
                 FlagResult::AlreadyOpened
@@ -155,21 +138,11 @@ impl FieldInner {
 
 impl Field for FieldInner {
     fn get_field_state(&self) -> FieldState {
-        self.state
+        self.field_info.state
     }
 
     fn get_field_type(&self) -> FieldType {
-        self.field_type
-    }
-
-    fn get_char_repr(&self) -> char {
-        if self.state.is_flagged() {
-            'H'
-        } else if !self.state.is_opened() {
-            'O'
-        } else {
-            self.field_type.get_char_repr()
-        }
+        self.field_info.field_type.clone()
     }
 }
 
@@ -407,11 +380,17 @@ impl BasicTable {
     }
 
     fn move_mine(&mut self, row: SizeType, col: SizeType) -> Result<(), &'static str> {
-        if self.fields[row as usize][col as usize].field_type.is_mine() {
+        if self.fields[row as usize][col as usize]
+            .get_field_type()
+            .is_mine()
+        {
             let mut new_place = (0, 0);
             let mut visiter = FieldVisiter::new(self.height, self.width, row, col)?;
             while let Some((r, c)) = visiter.next() {
-                if !self.fields[r as usize][c as usize].field_type.is_mine() {
+                if !self.fields[r as usize][c as usize]
+                    .get_field_type()
+                    .is_mine()
+                {
                     new_place = (r, c);
                     break;
                 }
@@ -434,7 +413,10 @@ impl BasicTable {
             );
             fields_to_recalculate.insert((row, col));
             for (r, c) in fields_to_recalculate {
-                if !self.fields[r as usize][c as usize].field_type.is_mine() {
+                if !self.fields[r as usize][c as usize]
+                    .get_field_type()
+                    .is_mine()
+                {
                     let field_value = self.get_field_value(r, c).unwrap();
                     match field_value {
                         0 => self.fields[r as usize][c as usize]
@@ -560,7 +542,9 @@ impl Table for BasicTable {
         }
 
         if self.number_of_opened_fields == 0
-            && self.fields[row as usize][col as usize].field_type.is_mine()
+            && self.fields[row as usize][col as usize]
+                .get_field_type()
+                .is_mine()
         {
             self.move_mine(row, col)?;
         }

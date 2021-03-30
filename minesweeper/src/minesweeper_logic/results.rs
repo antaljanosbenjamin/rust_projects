@@ -1,5 +1,5 @@
 use super::basic_types::SizeType;
-use super::field_type::FieldType;
+use super::field_info::FieldType;
 use std::collections::HashMap;
 use strum_macros::Display;
 
