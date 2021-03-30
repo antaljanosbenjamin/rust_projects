@@ -1,8 +1,8 @@
 # Monty-Hall simulator
-This program is a simple simulation of the [Monty-Hall problem](https://en.wikipedia.org/wiki/Monty_Hall_problem). 
+This program is a simple simulation of the [Monty Hall problem](https://en.wikipedia.org/wiki/Monty_Hall_problem). 
 
 ## Usage
-`cargo run num_of_doors num_of_games switch_choice`
+`cargo run --release -- <num_of_doors> <num_of_games> <switch_choice>`
 where the meaning of the parameters are the following:
 - `num_of_doors`: the number of doors in the simulated game.
 - `num_of_games`: number of the simulated games.

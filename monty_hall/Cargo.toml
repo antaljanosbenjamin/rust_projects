@@ -1,5 +1,5 @@
 [package]
-name = "monty-hall"
+name = "monty_hall"
 version = "0.1.0"
 authors = ["Antal János Benjamin <antal.janos.benjamin@gmail.com>"]
 edition = "2018"
@@ -9,4 +9,4 @@ rand = "0.3.14"
 
 
 [[bin]]
-name = "monty-hall"
+name = "monty_hall"
