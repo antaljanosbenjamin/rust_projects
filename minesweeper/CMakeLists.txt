@@ -1,7 +1,7 @@
 set(MINESWEEPER_SOURCES
     Cargo.toml
     src/lib.rs
-    src/minesweeper_logic/field_type.rs
+    src/minesweeper_logic/field_info.rs
     src/minesweeper_logic/game.rs
     src/minesweeper_logic/mod.rs
     src/minesweeper_logic/results.rs
