@@ -1,4 +1,5 @@
 use super::basic_types::SizeType;
+use super::field_info::FieldInfo;
 use super::results::{FlagResult, OpenInfo, OpenResult};
 use super::table::{BasicTable, Table};
 use hrsw::Stopwatch;
@@ -132,12 +133,19 @@ impl Game {
     pub fn get_elapsed(&self) -> Duration {
         self.stopwatch.elapsed()
     }
+
+    pub fn get_field_info(&self, row: SizeType, col: SizeType) -> Result<FieldInfo, &'static str> {
+        self.table.get_field_info(row, col)
+    }
 }
 
 #[cfg(test)]
 mod test {
+    use super::super::field_info::{FieldState, FieldType};
     use super::super::table::MockTable;
     use super::*;
+    use mockall::predicate::eq;
+    use mockall::Sequence;
     use std::collections::HashMap;
     use std::thread;
     use std::time::Instant;
@@ -330,5 +338,84 @@ mod test {
             .returning(create_default_open_result);
         let mut game = Game::new_from_table(Box::new(mock_table));
         let _ = game.open_neighbors(1, 1);
+    }
+
+    #[test]
+    fn test_get_field_info() {
+        let mut mock_table = MockTable::new();
+        let expected_field_info_1 = FieldInfo {
+            state: FieldState::Flagged,
+            field_type: FieldType::Numbered(4),
+        };
+        let expected_field_info_2 = FieldInfo {
+            state: FieldState::Closed,
+            field_type: FieldType::Mine,
+        };
+        let expected_field_info_3 = FieldInfo {
+            state: FieldState::Opened,
+            field_type: FieldType::Empty,
+        };
+        let row_1 = 0;
+        let col_1 = 1;
+        let row_2 = 2;
+        let col_2 = 3;
+        let row_3 = 5;
+        let col_3 = 4;
+        let mut seq = Sequence::new();
+
+        mock_table
+            .expect_get_field_info()
+            .with(eq(row_1), eq(col_1))
+            .times(1)
+            .in_sequence(&mut seq)
+            .return_const(Ok(expected_field_info_1.clone()));
+
+        mock_table
+            .expect_open_field()
+            .with(eq(row_1), eq(col_1))
+            .times(1)
+            .in_sequence(&mut seq)
+            .returning(create_default_open_result);
+
+        mock_table
+            .expect_get_field_info()
+            .with(eq(row_2), eq(col_2))
+            .times(1)
+            .in_sequence(&mut seq)
+            .return_const(Ok(expected_field_info_2.clone()));
+
+        mock_table
+            .expect_open_field()
+            .with(eq(row_2), eq(col_2))
+            .times(1)
+            .in_sequence(&mut seq)
+            .returning(|_, _| {
+                Ok(OpenInfo {
+                    result: OpenResult::Boom,
+                    newly_opened_fields: HashMap::new(),
+                })
+            });
+
+        mock_table
+            .expect_get_field_info()
+            .with(eq(row_3), eq(col_3))
+            .times(1)
+            .in_sequence(&mut seq)
+            .return_const(Ok(expected_field_info_3.clone()));
+
+        let mut game = Game::new_from_table(Box::new(mock_table));
+
+        let mut field_info = game.get_field_info(row_1, col_1).unwrap();
+        assert_eq!(expected_field_info_1, field_info);
+
+        let _ = game.open(row_1, col_1);
+
+        field_info = game.get_field_info(row_2, col_2).unwrap();
+        assert_eq!(expected_field_info_2, field_info);
+
+        let _ = game.open(row_2, col_2);
+
+        field_info = game.get_field_info(row_3, col_3).unwrap();
+        assert_eq!(expected_field_info_3, field_info);
     }
 }
