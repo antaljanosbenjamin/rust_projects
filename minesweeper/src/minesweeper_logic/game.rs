@@ -60,13 +60,16 @@ impl Game {
         }
     }
 
-    fn start_game_if_needed(&mut self) {
-        if self.state != GameState::NotStarted {
-            return;
+    fn start_game_if_needed(&mut self) -> Result<(), &'static str> {
+        match self.state {
+            GameState::Started => Ok(()),
+            GameState::NotStarted => {
+                self.stopwatch.start();
+                self.state = GameState::Started;
+                Ok(())
+            }
+            GameState::Stopped { win: _ } => Err(GAME_IS_ALREADY_STOPPED_ERROR),
         }
-
-        self.stopwatch.start();
-        self.state = GameState::Started;
     }
 
     fn stop_game(&mut self, win: bool) {
@@ -74,34 +77,26 @@ impl Game {
         self.state = GameState::Stopped { win };
     }
 
-    fn is_running(&self) -> bool {
-        self.state == GameState::Started
-    }
-
     fn execute_open(
         &mut self,
         open_func: impl Fn(&mut dyn Table) -> Result<OpenInfo, &'static str>,
     ) -> Result<OpenInfo, &'static str> {
-        self.start_game_if_needed();
+        self.start_game_if_needed()?;
 
-        if self.is_running() {
-            let open_info = open_func(&mut *self.table)?;
-            match open_info.result {
-                OpenResult::WINNER => {
-                    self.state = GameState::Stopped { win: true };
-                    self.stop_game(true);
-                }
-                OpenResult::Boom => {
-                    self.state = GameState::Stopped { win: false };
-                    self.stop_game(false);
-                }
-                _ => (),
-            };
+        let open_info = open_func(&mut *self.table)?;
+        match open_info.result {
+            OpenResult::WINNER => {
+                self.state = GameState::Stopped { win: true };
+                self.stop_game(true);
+            }
+            OpenResult::Boom => {
+                self.state = GameState::Stopped { win: false };
+                self.stop_game(false);
+            }
+            _ => (),
+        };
 
-            Ok(open_info)
-        } else {
-            Err(GAME_IS_ALREADY_STOPPED_ERROR)
-        }
+        Ok(open_info)
     }
 
     pub fn open(&mut self, row: SizeType, col: SizeType) -> Result<OpenInfo, &'static str> {
@@ -121,13 +116,9 @@ impl Game {
         row: SizeType,
         col: SizeType,
     ) -> Result<FlagResult, &'static str> {
-        self.start_game_if_needed();
+        self.start_game_if_needed()?;
 
-        if self.is_running() {
-            self.table.toggle_flag(row, col)
-        } else {
-            Err(GAME_IS_ALREADY_STOPPED_ERROR)
-        }
+        self.table.toggle_flag(row, col)
     }
 
     pub fn width(&self) -> SizeType {
