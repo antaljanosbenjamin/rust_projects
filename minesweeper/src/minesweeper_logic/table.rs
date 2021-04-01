@@ -1357,18 +1357,29 @@ mod test {
         const NUMBER_OF_MINES: SizeType = 10;
         let expected_open_error: Result<OpenInfo, &'static str> = Err(INVALID_INDEX_ERROR);
         let expected_flag_error: Result<FlagResult, &'static str> = Err(INVALID_INDEX_ERROR);
+        let expected_get_field_info_error: Result<FieldInfo, &'static str> =
+            Err(INVALID_INDEX_ERROR);
         let mut game = BasicTable::new(HEIGHT, WIDTH, NUMBER_OF_MINES).unwrap();
         let mut check_indices = |row, col, message| {
             let open_result = game.open_field(row, col);
             assert_eq!(expected_open_error, open_result, "{} open_field", message);
+
             let open_neighbors_result = game.open_neighbors(row, col);
             assert_eq!(
                 expected_open_error, open_neighbors_result,
                 "{} open_neighbors",
                 message
             );
+
             let flag_result = game.toggle_flag(row, col);
             assert_eq!(expected_flag_error, flag_result, "{} toggle_flag", message);
+
+            let get_field_info_result = game.get_field_info(row, col);
+            assert_eq!(
+                expected_get_field_info_error, get_field_info_result,
+                "{} get_field_info",
+                message
+            );
         };
         const GOOD_INDEX: SizeType = 1;
         check_indices(HEIGHT, GOOD_INDEX, "Exact height");
