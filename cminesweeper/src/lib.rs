@@ -534,6 +534,23 @@ mod test {
     }
 
     #[test]
+    fn open_with_zero_buffer() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        buffered_open_info.data.newly_opened_fields_max_length = 0;
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::InsufficientBuffer, error_info.error_code);
+        destroy_game(&mut game_ptr);
+    }
+
+    #[test]
     fn open_with_insufficient_buffer() {
         let mut game_ptr = create_game(GameLevel::Beginner);
         let mut buffered_open_info = create_open_info_with_size(5);
@@ -604,6 +621,29 @@ mod test {
         );
         assert_ok!(buffered_error_info.data);
         assert_eq!(FlagResult::FlagRemoved, flag_result);
+        destroy_game(&mut game_ptr);
+    }
+
+    #[test]
+    fn toggle_with_nullptr_as_game() {
+        let mut flag_result = FlagResult::AlreadyOpened;
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_toggle_flag(
+            std::ptr::null_mut(),
+            0,
+            0,
+            &mut flag_result,
+            &mut error_info,
+        );
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn toggle_with_nullptr_as_flag_result() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_toggle_flag(game_ptr, 0, 0, std::ptr::null_mut(), &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
         destroy_game(&mut game_ptr);
     }
 
