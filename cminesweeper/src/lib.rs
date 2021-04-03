@@ -20,8 +20,15 @@ pub enum CError {
 type GameSizeType = minesweeper::SizeType;
 type ArraySizeType = u64;
 
-macro_rules! return_error {
+fn panic_if_null(c_ei_ptr: *const CErrorInfo) {
+    if c_ei_ptr.is_null() {
+        panic!("Error info ptr is null!")
+    }
+}
+
+macro_rules! populate_error {
     ($error_info_ptr:ident, $error_code:expr, $error_msg:expr) => {{
+        panic_if_null($error_info_ptr);
         let error_info = unsafe { &mut *$error_info_ptr };
         if $error_msg.len() > 0 && error_info.error_message_max_length > 0 {
             let ref error_message = $error_msg;
@@ -44,6 +51,12 @@ macro_rules! return_error {
             }
         }
         error_info.error_code = $error_code;
+    }};
+}
+
+macro_rules! return_error {
+    ($error_info_ptr:ident, $error_code:expr, $error_msg:expr) => {{
+        populate_error!($error_info_ptr, $error_code, $error_msg);
         return;
     }};
     ($error_info_ptr:ident, $error_code:expr) => {
@@ -70,9 +83,30 @@ macro_rules! return_or_assign {
 
 macro_rules! initialize_to_ok {
     ($error_info_ptr:ident) => {
+        panic_if_null($error_info_ptr);
         let mut error_info = unsafe { &mut *$error_info_ptr };
         error_info.error_code = CError::Ok;
         error_info.error_message_length = 0;
+    };
+}
+
+macro_rules! get_mut_ref_from_ptr {
+    ($ptr:ident, $error_info_ptr:ident) => {
+        if $ptr.is_null() {
+            return_error!($error_info_ptr, CError::NullPointerAsInput);
+        } else {
+            unsafe { &mut *$ptr }
+        }
+    };
+}
+
+macro_rules! get_ref_from_ptr {
+    ($ptr:ident, $error_info_ptr:ident) => {
+        if $ptr.is_null() {
+            return_error!($error_info_ptr, CError::NullPointerAsInput);
+        } else {
+            unsafe { &*$ptr }
+        }
     };
 }
 
@@ -110,7 +144,7 @@ pub extern "C" fn minesweeper_new_game(
     if game_ptr_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
-    let game_ptr = unsafe { &mut *game_ptr_ptr };
+    let game_ptr = get_mut_ref_from_ptr!(game_ptr_ptr, c_ei_ptr);
     if !game_ptr.is_null() {
         return_error!(c_ei_ptr, CError::InvalidInput);
     }
@@ -127,11 +161,9 @@ pub extern "C" fn minesweeper_game_open(
     c_ei_ptr: *mut CErrorInfo,
 ) {
     initialize_to_ok!(c_ei_ptr);
-    if game_ptr.is_null() || c_open_info_ptr.is_null() {
-        return_error!(c_ei_ptr, CError::NullPointerAsInput);
-    }
+    let game = get_mut_ref_from_ptr!(game_ptr, c_ei_ptr);
+    let c_open_info = get_mut_ref_from_ptr!(c_open_info_ptr, c_ei_ptr);
 
-    let mut c_open_info = unsafe { &mut *c_open_info_ptr };
     if c_open_info.newly_opened_fields_length != 0 {
         return_error!(c_ei_ptr, CError::InvalidInput);
     }
@@ -142,7 +174,6 @@ pub extern "C" fn minesweeper_game_open(
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
 
-    let game = unsafe { &mut *game_ptr };
     let open_info = return_or_assign!(game.open(row, column), c_ei_ptr);
 
     if open_info.newly_opened_fields.len() as ArraySizeType
@@ -176,11 +207,8 @@ pub extern "C" fn minesweeper_game_toggle_flag(
     c_ei_ptr: *mut CErrorInfo,
 ) {
     initialize_to_ok!(c_ei_ptr);
-    if game_ptr.is_null() || field_flag_result_ptr.is_null() {
-        return_error!(c_ei_ptr, CError::NullPointerAsInput);
-    }
-    let game = unsafe { &mut *game_ptr };
-    let flag_result = unsafe { &mut *field_flag_result_ptr };
+    let game = get_mut_ref_from_ptr!(game_ptr, c_ei_ptr);
+    let flag_result = get_mut_ref_from_ptr!(field_flag_result_ptr, c_ei_ptr);
     *flag_result = return_or_assign!(game.toggle_flag(row, column), c_ei_ptr);
 }
 
@@ -190,10 +218,7 @@ pub extern "C" fn minesweeper_destroy_game(
     c_ei_ptr: *mut CErrorInfo,
 ) {
     initialize_to_ok!(c_ei_ptr);
-    if game_ptr_ptr.is_null() {
-        return_error!(c_ei_ptr, CError::NullPointerAsInput);
-    }
-    let game_ptr = unsafe { &mut *game_ptr_ptr };
+    let game_ptr = get_mut_ref_from_ptr!(game_ptr_ptr, c_ei_ptr);
     if game_ptr.is_null() {
         return;
     }
@@ -213,8 +238,8 @@ pub extern "C" fn minesweeper_game_get_width(
     if game_ptr.is_null() || width_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
-    let game = unsafe { &*game_ptr };
-    let width = unsafe { &mut *width_ptr };
+    let game = get_ref_from_ptr!(game_ptr, c_ei_ptr);
+    let width = get_mut_ref_from_ptr!(width_ptr, c_ei_ptr);
     *width = game.width();
 }
 
@@ -228,8 +253,8 @@ pub extern "C" fn minesweeper_game_get_height(
     if game_ptr.is_null() || height_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
-    let game = unsafe { &*game_ptr };
-    let height = unsafe { &mut *height_ptr };
+    let game = get_ref_from_ptr!(game_ptr, c_ei_ptr);
+    let height = get_mut_ref_from_ptr!(height_ptr, c_ei_ptr);
     *height = game.height();
 }
 
@@ -243,8 +268,8 @@ pub extern "C" fn minesweeper_game_get_elapsed_seconds(
     if game_ptr.is_null() || elapsed_seconds_ptr.is_null() {
         return_error!(c_ei_ptr, CError::NullPointerAsInput);
     }
-    let game = unsafe { &*game_ptr };
-    let elapsed_seconds = unsafe { &mut *elapsed_seconds_ptr };
+    let game = get_ref_from_ptr!(game_ptr, c_ei_ptr);
+    let elapsed_seconds = get_mut_ref_from_ptr!(elapsed_seconds_ptr, c_ei_ptr);
     let elapsed_duration = game.get_elapsed();
     *elapsed_seconds = elapsed_duration.as_secs();
 }
@@ -400,7 +425,15 @@ mod test {
     }
 
     #[test]
-    fn destroy_game_with_nullptr() {
+    #[should_panic(expected = "Error info ptr is null!")]
+    fn new_game_with_nullptr_as_error_info_ptr() {
+        let level = GameLevel::Beginner;
+        let mut game_ptr: *mut Game = std::ptr::null_mut();
+        minesweeper_new_game(&mut game_ptr, level, std::ptr::null_mut());
+    }
+
+    #[test]
+    fn destroy_game_with_nullptr_as_game() {
         let mut error_info = create_empty_error_info();
         minesweeper_destroy_game(std::ptr::null_mut(), &mut error_info);
         assert_eq!(CError::NullPointerAsInput, error_info.error_code);
@@ -413,6 +446,13 @@ mod test {
         let mut error_info = create_empty_error_info();
         minesweeper_destroy_game(&mut game_ptr, &mut error_info);
         check_no_error(&error_info);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error info ptr is null!")]
+    fn destroy_game_with_nullptr_as_error_info_ptr() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        minesweeper_destroy_game(&mut game_ptr, std::ptr::null_mut());
     }
 
     #[test]
@@ -497,6 +537,20 @@ mod test {
         minesweeper_game_open(game_ptr, 0, 0, std::ptr::null_mut(), &mut error_info);
         assert_eq!(CError::NullPointerAsInput, error_info.error_code);
         destroy_game(&mut game_ptr);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error info ptr is null!")]
+    fn open_with_nullptr_as_error_info_ptr() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        minesweeper_game_open(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            std::ptr::null_mut(),
+        );
     }
 
     #[test]
@@ -648,6 +702,14 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "Error info ptr is null!")]
+    fn toggle_with_nullptr_as_error_info_ptr() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut flag_result = FlagResult::AlreadyOpened;
+        minesweeper_game_toggle_flag(game_ptr, 0, 0, &mut flag_result, std::ptr::null_mut());
+    }
+
+    #[test]
     fn flag_opened() {
         let mut game_ptr = create_game(GameLevel::Beginner);
         let mut buffered_open_info = create_open_info_for(game_ptr);
@@ -693,6 +755,14 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "Error info ptr is null!")]
+    fn get_width_with_nullptr_as_error_info_ptr() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut width = 0;
+        minesweeper_game_get_width(game_ptr, &mut width, std::ptr::null_mut());
+    }
+
+    #[test]
     fn get_height_with_nullptr_as_game() {
         let mut error_info = create_empty_error_info();
         let mut height = 0;
@@ -710,6 +780,14 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "Error info ptr is null!")]
+    fn get_height_with_nullptr_as_error_info_ptr() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut height = 0;
+        minesweeper_game_get_height(game_ptr, &mut height, std::ptr::null_mut());
+    }
+
+    #[test]
     fn get_elapsed_seconds_with_nullptr_as_game() {
         let mut error_info = create_empty_error_info();
         let mut elapsed = 0;
@@ -724,5 +802,13 @@ mod test {
         minesweeper_game_get_elapsed_seconds(game_ptr, std::ptr::null_mut(), &mut error_info);
         assert_eq!(CError::NullPointerAsInput, error_info.error_code);
         destroy_game(&mut game_ptr);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error info ptr is null!")]
+    fn get_elapsed_seconds_with_nullptr_as_error_info_ptr() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut elapsed_seconds = 0;
+        minesweeper_game_get_elapsed_seconds(game_ptr, &mut elapsed_seconds, std::ptr::null_mut());
     }
 }
