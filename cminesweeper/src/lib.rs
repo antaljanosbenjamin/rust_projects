@@ -831,8 +831,6 @@ mod test {
     #[test]
     fn open_neighbors() {
         let mut game_ptr = create_game(GameLevel::Beginner);
-        let width = get_width(game_ptr);
-        let height = get_height(game_ptr);
         let mut buffered_open_info = create_open_info_for(game_ptr);
         let mut buffered_error_info = create_error_info(100);
 
