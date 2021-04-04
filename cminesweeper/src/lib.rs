@@ -1,5 +1,5 @@
 use libc::c_char;
-use minesweeper::{FieldInfo, FieldState, FieldType, FlagResult, Game, GameLevel, OpenResult};
+use minesweeper::{FieldInfo, FieldType, FlagResult, Game, GameLevel, OpenResult};
 use std::cmp;
 use std::convert::TryFrom;
 use std::ptr;
@@ -325,6 +325,7 @@ pub extern "C" fn minesweeper_game_get_field_info(
 #[cfg(test)]
 mod test {
     use super::*;
+    use minesweeper::FieldState;
     use std::ffi::CStr;
 
     macro_rules! assert_ok {
