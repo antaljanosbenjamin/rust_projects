@@ -110,6 +110,56 @@ macro_rules! get_ref_from_ptr {
     };
 }
 
+fn open_common(
+    game_ptr: *mut Game,
+    row: GameSizeType,
+    column: GameSizeType,
+    c_open_info_ptr: *mut COpenInfo,
+    c_ei_ptr: *mut CErrorInfo,
+    open_func: fn(
+        &mut Game,
+        GameSizeType,
+        GameSizeType,
+    ) -> Result<minesweeper::OpenInfo, &'static str>,
+) {
+    initialize_to_ok!(c_ei_ptr);
+    let game = get_mut_ref_from_ptr!(game_ptr, c_ei_ptr);
+    let c_open_info = get_mut_ref_from_ptr!(c_open_info_ptr, c_ei_ptr);
+
+    if c_open_info.newly_opened_fields_length != 0 {
+        return_error!(c_ei_ptr, CError::InvalidInput);
+    }
+    if c_open_info.newly_opened_fields_max_length == 0 {
+        return_error!(c_ei_ptr, CError::InsufficientBuffer);
+    }
+    if c_open_info.newly_opened_fields_ptr.is_null() {
+        return_error!(c_ei_ptr, CError::NullPointerAsInput);
+    }
+
+    let open_info = return_or_assign!(open_func(game, row, column), c_ei_ptr);
+
+    if open_info.newly_opened_fields.len() as ArraySizeType
+        > c_open_info.newly_opened_fields_max_length
+    {
+        return;
+    }
+    c_open_info.result = open_info.result;
+    let c_newly_opened_fields: &mut [COpenedField] = unsafe {
+        slice::from_raw_parts_mut(
+            c_open_info.newly_opened_fields_ptr,
+            c_open_info.newly_opened_fields_max_length as usize,
+        )
+    };
+    let mut index: usize = 0;
+    for (coords, field_type) in open_info.newly_opened_fields {
+        c_newly_opened_fields[index].row = coords.0;
+        c_newly_opened_fields[index].column = coords.1;
+        c_newly_opened_fields[index].field_type = field_type.clone();
+        index = index + 1;
+    }
+    c_open_info.newly_opened_fields_length = index as ArraySizeType;
+}
+
 // Based on this https://s3.amazonaws.com/temp.michaelfbryan.com/objects/index.html
 #[repr(C)]
 pub struct COpenedField {
@@ -153,6 +203,24 @@ pub extern "C" fn minesweeper_new_game(
 }
 
 #[no_mangle]
+pub extern "C" fn minesweeper_game_open_neighbors(
+    game_ptr: *mut Game,
+    row: GameSizeType,
+    column: GameSizeType,
+    c_open_info_ptr: *mut COpenInfo,
+    c_ei_ptr: *mut CErrorInfo,
+) {
+    open_common(
+        game_ptr,
+        row,
+        column,
+        c_open_info_ptr,
+        c_ei_ptr,
+        Game::open_neighbors,
+    );
+}
+
+#[no_mangle]
 pub extern "C" fn minesweeper_game_open(
     game_ptr: *mut Game,
     row: GameSizeType,
@@ -160,42 +228,7 @@ pub extern "C" fn minesweeper_game_open(
     c_open_info_ptr: *mut COpenInfo,
     c_ei_ptr: *mut CErrorInfo,
 ) {
-    initialize_to_ok!(c_ei_ptr);
-    let game = get_mut_ref_from_ptr!(game_ptr, c_ei_ptr);
-    let c_open_info = get_mut_ref_from_ptr!(c_open_info_ptr, c_ei_ptr);
-
-    if c_open_info.newly_opened_fields_length != 0 {
-        return_error!(c_ei_ptr, CError::InvalidInput);
-    }
-    if c_open_info.newly_opened_fields_max_length == 0 {
-        return_error!(c_ei_ptr, CError::InsufficientBuffer);
-    }
-    if c_open_info.newly_opened_fields_ptr.is_null() {
-        return_error!(c_ei_ptr, CError::NullPointerAsInput);
-    }
-
-    let open_info = return_or_assign!(game.open(row, column), c_ei_ptr);
-
-    if open_info.newly_opened_fields.len() as ArraySizeType
-        > c_open_info.newly_opened_fields_max_length
-    {
-        return;
-    }
-    c_open_info.result = open_info.result;
-    let c_newly_opened_fields: &mut [COpenedField] = unsafe {
-        slice::from_raw_parts_mut(
-            c_open_info.newly_opened_fields_ptr,
-            c_open_info.newly_opened_fields_max_length as usize,
-        )
-    };
-    let mut index: usize = 0;
-    for (coords, field_type) in open_info.newly_opened_fields {
-        c_newly_opened_fields[index].row = coords.0;
-        c_newly_opened_fields[index].column = coords.1;
-        c_newly_opened_fields[index].field_type = field_type.clone();
-        index = index + 1;
-    }
-    c_open_info.newly_opened_fields_length = index as ArraySizeType;
+    open_common(game_ptr, row, column, c_open_info_ptr, c_ei_ptr, Game::open);
 }
 
 #[no_mangle]
@@ -793,5 +826,144 @@ mod test {
         let game_ptr = create_game(GameLevel::Beginner);
         let mut elapsed_seconds = 0;
         minesweeper_game_get_elapsed_seconds(game_ptr, &mut elapsed_seconds, std::ptr::null_mut());
+    }
+
+    #[test]
+    fn open_neighbors() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        let width = get_width(game_ptr);
+        let height = get_height(game_ptr);
+        let mut buffered_open_info = create_open_info_for(game_ptr);
+        let mut buffered_error_info = create_error_info(100);
+
+        minesweeper_game_open_neighbors(
+            game_ptr,
+            1,
+            1,
+            &mut buffered_open_info.data,
+            &mut buffered_error_info.data,
+        );
+        assert_ok!(buffered_error_info.data);
+        assert!(buffered_open_info.data.newly_opened_fields_length == 0);
+        assert_eq!(CError::Ok, buffered_error_info.data.error_code);
+
+        destroy_game(&mut game_ptr);
+    }
+
+    #[test]
+    fn open_neighbors_with_nullptr_as_game() {
+        let mut buffered_open_info = create_open_info_with_size(5);
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open_neighbors(
+            std::ptr::null_mut(),
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+    }
+
+    #[test]
+    fn open_neighbors_with_nullptr_as_open_info_ptr() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open_neighbors(game_ptr, 0, 0, std::ptr::null_mut(), &mut error_info);
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+        destroy_game(&mut game_ptr);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error info ptr is null!")]
+    fn open_neighbors_with_nullptr_as_error_info_ptr() {
+        let game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        minesweeper_game_open_neighbors(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            std::ptr::null_mut(),
+        );
+    }
+
+    #[test]
+    fn open_neighbors_with_not_empty_newly_opened_fields() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        buffered_open_info.data.newly_opened_fields_length = 1;
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open_neighbors(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::InvalidInput, error_info.error_code);
+        destroy_game(&mut game_ptr);
+    }
+
+    #[test]
+    fn open_neighbors_with_nullptr_as_newly_opened_fields() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        buffered_open_info.data.newly_opened_fields_ptr = std::ptr::null_mut();
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open_neighbors(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::NullPointerAsInput, error_info.error_code);
+        destroy_game(&mut game_ptr);
+    }
+
+    #[test]
+    fn open_neighbors_with_zero_buffer() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        buffered_open_info.data.newly_opened_fields_max_length = 0;
+        let mut error_info = create_empty_error_info();
+        minesweeper_game_open_neighbors(
+            game_ptr,
+            0,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::InsufficientBuffer, error_info.error_code);
+        destroy_game(&mut game_ptr);
+    }
+
+    #[test]
+    fn open_neighbors_with_too_big_indices() {
+        let mut game_ptr = create_game(GameLevel::Beginner);
+        let mut buffered_open_info = create_open_info_with_size(5);
+        let mut error_info = create_empty_error_info();
+
+        let width = get_width(game_ptr);
+        minesweeper_game_open_neighbors(
+            game_ptr,
+            0,
+            width,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::UnexpectedError, error_info.error_code);
+
+        error_info = create_empty_error_info();
+        let height = get_width(game_ptr);
+        minesweeper_game_open_neighbors(
+            game_ptr,
+            height,
+            0,
+            &mut buffered_open_info.data,
+            &mut error_info,
+        );
+        assert_eq!(CError::UnexpectedError, error_info.error_code);
+        destroy_game(&mut game_ptr);
     }
 }
