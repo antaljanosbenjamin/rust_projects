@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 rand = "0.7.2"
 indexmap = "1.0.2"
-hrsw = "0.1.0"
+hrsw = "0.1.2"
 strum = "0.18.0"
 strum_macros = "0.18.0"
 lazy_static = "1.4.0"

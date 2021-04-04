@@ -7,7 +7,7 @@ use std::slice;
 use strum_macros::Display;
 
 #[repr(C)]
-#[derive(Eq, PartialEq, Display, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Display, Debug)]
 pub enum CError {
     Ok,
     InvalidInput,
@@ -162,6 +162,7 @@ fn open_common(
 
 // Based on this https://s3.amazonaws.com/temp.michaelfbryan.com/objects/index.html
 #[repr(C)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct COpenedField {
     row: GameSizeType,
     column: GameSizeType,
@@ -169,6 +170,7 @@ pub struct COpenedField {
 }
 
 #[repr(C)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct COpenInfo {
     result: OpenResult,
     newly_opened_fields_length: ArraySizeType,
@@ -177,6 +179,7 @@ pub struct COpenInfo {
 }
 
 #[repr(C)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct CErrorInfo {
     error_code: CError,
     error_message_length: ArraySizeType,

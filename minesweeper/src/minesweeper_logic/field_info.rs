@@ -1,5 +1,6 @@
 use strum_macros::Display;
 
+#[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Display, Debug)]
 pub enum FieldState {
     Closed,
@@ -18,7 +19,7 @@ impl FieldState {
 }
 
 #[repr(C)]
-#[derive(Clone, Eq, PartialEq, Display, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Display, Debug)]
 pub enum FieldType {
     Empty,
     Numbered(u8),

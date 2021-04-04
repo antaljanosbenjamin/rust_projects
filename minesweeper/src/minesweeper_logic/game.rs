@@ -10,14 +10,14 @@ static GAME_IS_ALREADY_STOPPED_ERROR: &'static str = "Game is already stopped!";
 
 #[repr(C)]
 #[allow(dead_code)]
-#[derive(Eq, PartialEq, Display, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Display, Debug)]
 pub enum GameLevel {
     Beginner,
     Intermediate,
     Expert,
 }
 
-#[derive(Eq, PartialEq, Display, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Display, Debug)]
 enum GameState {
     NotStarted,
     Started,

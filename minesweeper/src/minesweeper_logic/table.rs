@@ -31,7 +31,7 @@ pub trait Table {
     fn toggle_flag(&mut self, row: SizeType, col: SizeType) -> Result<FlagResult, &'static str>;
 }
 
-#[derive(Eq, PartialEq, Display, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Display, Debug)]
 enum FieldOpenResult {
     AlreadyOpened,
     SimpleOpen,
@@ -40,7 +40,7 @@ enum FieldOpenResult {
     IsFlagged,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 struct FieldInner {
     field_info: FieldInfo,
 }
@@ -158,6 +158,7 @@ impl Field for FieldInner {
     }
 }
 
+#[derive(Clone, Eq, PartialEq, Debug)]
 struct FieldVisiter {
     height: SizeType,
     width: SizeType,
@@ -335,7 +336,7 @@ fn generate_fields(
     Ok(fields)
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct BasicTable {
     height: SizeType,
     width: SizeType,
