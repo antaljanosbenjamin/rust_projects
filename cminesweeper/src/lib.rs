@@ -334,13 +334,20 @@ mod test {
     }
 
     struct BufferedData<S, B> {
-        #[allow(dead_code)]
         buffer: Vec<B>,
         data: S,
     }
 
     fn create_open_info_with_size(size: usize) -> BufferedData<COpenInfo, COpenedField> {
         let mut buffer = Vec::with_capacity(size);
+        buffer.resize(
+            size,
+            COpenedField {
+                row: GameSizeType::max_value(),
+                column: GameSizeType::max_value(),
+                field_type: FieldType::Mine,
+            },
+        );
         let newly_opened_fields_ptr = buffer.as_mut_ptr();
         let newly_opened_fields_max_length =
             ArraySizeType::try_from(size).expect("Size conversion failed");
@@ -533,15 +540,10 @@ mod test {
         assert!(buffered_open_info.data.newly_opened_fields_length > 0);
         assert_eq!(CError::Ok, buffered_error_info.data.error_code);
 
-        let newly_opened_fields_size =
+        let newly_opened_fields_length =
             usize::try_from(buffered_open_info.data.newly_opened_fields_length).unwrap();
-        let slice = unsafe {
-            std::slice::from_raw_parts(
-                buffered_open_info.data.newly_opened_fields_ptr,
-                newly_opened_fields_size,
-            )
-        };
-        for newly_opened_field in slice.iter() {
+
+        for newly_opened_field in buffered_open_info.buffer[0..newly_opened_fields_length].iter() {
             assert_ne!(FieldType::Mine, newly_opened_field.field_type);
             assert!(height >= newly_opened_field.row);
             assert!(width >= newly_opened_field.column);
