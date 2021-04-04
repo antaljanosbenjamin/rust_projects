@@ -298,9 +298,6 @@ pub extern "C" fn minesweeper_game_get_elapsed_seconds(
     c_ei_ptr: *mut CErrorInfo,
 ) {
     initialize_to_ok!(c_ei_ptr);
-    if game_ptr.is_null() || elapsed_seconds_ptr.is_null() {
-        return_error!(c_ei_ptr, CError::NullPointerAsInput);
-    }
     let game = get_ref_from_ptr!(game_ptr, c_ei_ptr);
     let elapsed_seconds = get_mut_ref_from_ptr!(elapsed_seconds_ptr, c_ei_ptr);
     let elapsed_duration = game.get_elapsed();
