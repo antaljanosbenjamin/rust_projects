@@ -1059,7 +1059,7 @@ mod test {
     }
 
     #[test]
-    fn get_field_info_with_nullptr_as_flag_result() {
+    fn get_field_info_with_nullptr_as_field_info() {
         let mut game_ptr = create_game(GameLevel::Beginner);
         let mut error_info = create_empty_error_info();
         minesweeper_game_get_field_info(game_ptr, 0, 0, std::ptr::null_mut(), &mut error_info);
