@@ -197,6 +197,7 @@ function(cargo_add_library LIB_NAME)
       TARGET ${STATIC_LIB_TARGET_NAME} PROPERTY INTERFACE_LINK_LIBRARIES_RELWITHDEBINFO msvcrt
     )
     set_property(TARGET ${STATIC_LIB_TARGET_NAME} PROPERTY INTERFACE_LINK_LIBRARIES_RELEASE msvcrt)
+    target_link_libraries(${STATIC_LIB_TARGET_NAME} INTERFACE bcrypt)
   elseif(UNIX)
     target_link_libraries(${STATIC_LIB_TARGET_NAME} INTERFACE pthread dl)
   else()
