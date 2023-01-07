@@ -258,8 +258,8 @@ pub extern "C" fn minesweeper_destroy_game(
     if game_ptr.is_null() {
         return;
     }
-    let _ = unsafe {
-        Box::<Game>::from_raw(*game_ptr);
+    unsafe {
+        drop(Box::<Game>::from_raw(*game_ptr));
     };
     *game_ptr = std::ptr::null_mut();
 }
